@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import type { Difficulty, ClassType } from './types/game';
 import { useGame } from './hooks/useGame';
 import { GameCanvas } from './components/GameCanvas';
@@ -12,6 +12,8 @@ import EvolutionPage from './components/EvolutionPage';
 import FusionPage from './components/FusionPage';
 import { StatisticsContent } from './components/StatisticsScreen';
 import ArtifactScreen from './components/ArtifactScreen';
+import { LeaderboardScreen, getStoredPlayerName } from './components/LeaderboardScreen';
+import { submitScoreToLeaderboard } from './lib/supabase';
 import { Button } from './components/ui/button';
 import {
   Crown,
@@ -25,6 +27,7 @@ import {
   Package,
   TrendingUp,
   Sword,
+  Trophy,
 } from 'lucide-react';
 import './App.css';
 
@@ -70,9 +73,29 @@ function App() {
   const [showArtifacts, setShowArtifacts] = useState<boolean>(INITIAL_PANEL_STATE.showArtifacts);
   const [showStats, setShowStats] = useState<boolean>(INITIAL_PANEL_STATE.showStats);
   const [showSkillSelect, setShowSkillSelect] = useState<boolean>(INITIAL_PANEL_STATE.showSkillSelect);
+  const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
 
   // 메뉴/선택 상태
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
+
+  // 게임 종료 시 리더보드에 점수 제출 (한 번만)
+  const lastSubmittedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (gameState.gameStatus !== 'defeat' && gameState.gameStatus !== 'victory') {
+      lastSubmittedRef.current = null;
+      return;
+    }
+    const key = `${gameState.score}-${gameState.wave}-${gameState.gameStatus}`;
+    if (lastSubmittedRef.current === key) return;
+    lastSubmittedRef.current = key;
+    submitScoreToLeaderboard({
+      playerName: getStoredPlayerName() || 'Guest',
+      score: gameState.score,
+      wave: gameState.wave,
+      difficulty: gameState.difficulty,
+      classType: gameState.player.class,
+    }).catch(() => {});
+  }, [gameState.gameStatus, gameState.score, gameState.wave, gameState.difficulty, gameState.player.class]);
 
   // UI에서 자주 쓰는 값 메모이제이션
   const uiData = useMemo(() => {
@@ -138,6 +161,7 @@ function App() {
       setShowStatistics(INITIAL_PANEL_STATE.showStatistics);
       setShowArtifacts(INITIAL_PANEL_STATE.showArtifacts);
       setShowStats(INITIAL_PANEL_STATE.showStats);
+      setShowLeaderboard(false);
     }
   }, [gameState.gameStatus]);
 
@@ -208,10 +232,17 @@ function App() {
               💡 하드 모드는 웨이브 100에서 압도적인 탄막 패턴이 추가됩니다
             </div>
 
-            <div className="mt-4">
+            <div className="mt-4 flex gap-3">
+              <Button
+                onClick={() => setShowLeaderboard(true)}
+                className="flex-1 bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-700 hover:to-amber-700 h-12 text-base font-bold border-2 border-yellow-400"
+              >
+                <Trophy className="w-5 h-5 mr-2" />
+                🏆 리더보드
+              </Button>
               <Button
                 onClick={() => setShowStatistics(prev => !prev)}
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 h-12 text-base font-bold border-2 border-purple-400"
+                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 h-12 text-base font-bold border-2 border-purple-400"
               >
                 <TrendingUp className="w-5 h-5 mr-2" />
                 📊 통계 보기
@@ -222,6 +253,9 @@ function App() {
               <div className="mt-4">
                 <StatisticsContent />
               </div>
+            )}
+            {showLeaderboard && (
+              <LeaderboardScreen onClose={() => setShowLeaderboard(false)} />
             )}
           </div>
         </div>
