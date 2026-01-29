@@ -14,7 +14,10 @@ import { StatisticsContent } from './components/StatisticsScreen';
 import ArtifactScreen from './components/ArtifactScreen';
 import { LeaderboardScreen, getStoredPlayerName } from './components/LeaderboardScreen';
 import { SignUpScreen } from './components/SignUpScreen';
+import { LoginScreen } from './components/LoginScreen';
+import { MyInfoScreen } from './components/MyInfoScreen';
 import { submitScoreToLeaderboard } from './lib/supabase';
+import { useAuth } from './hooks/useAuth';
 import { Button } from './components/ui/button';
 import {
   Crown,
@@ -79,6 +82,10 @@ function App() {
   const [showSkillSelect, setShowSkillSelect] = useState<boolean>(INITIAL_PANEL_STATE.showSkillSelect);
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
   const [showSignUp, setShowSignUp] = useState<boolean>(false);
+  const [showLogin, setShowLogin] = useState<boolean>(false);
+  const [showMyInfo, setShowMyInfo] = useState<boolean>(false);
+
+  const { user, profile, signOut } = useAuth();
 
   // 메뉴/선택 상태
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
@@ -91,18 +98,20 @@ function App() {
       return;
     }
     if (gameState.player.class === 'warrior') return; // 전사는 리더보드 등재 안 함
+    if (!user) return; // 비로그인 시 리더보드 등재 불가
     const key = `${gameState.score}-${gameState.wave}-${gameState.gameStatus}`;
     if (lastSubmittedRef.current === key) return;
     lastSubmittedRef.current = key;
     submitScoreToLeaderboard({
-      playerName: getStoredPlayerName() || 'Guest',
+      playerName: profile?.nickname ?? getStoredPlayerName() ?? 'Guest',
       score: gameState.score,
       wave: gameState.wave,
       difficulty: gameState.difficulty,
       classType: gameState.player.class,
       playDurationSeconds: getLastPlayDuration(),
+      userId: user?.id,
     }).catch(() => {});
-  }, [gameState.gameStatus, gameState.score, gameState.wave, gameState.difficulty, gameState.player.class, getLastPlayDuration]);
+  }, [gameState.gameStatus, gameState.score, gameState.wave, gameState.difficulty, gameState.player.class, getLastPlayDuration, profile?.nickname, user, user?.id]);
 
   // UI에서 자주 쓰는 값 메모이제이션
   const uiData = useMemo(() => {
@@ -170,6 +179,8 @@ function App() {
       setShowStats(INITIAL_PANEL_STATE.showStats);
       setShowLeaderboard(false);
       setShowSignUp(false);
+      setShowLogin(false);
+      setShowMyInfo(false);
     }
   }, [gameState.gameStatus]);
 
@@ -257,13 +268,46 @@ function App() {
                   📊 통계 보기
                 </Button>
               </div>
-              <Button
-                onClick={() => setShowSignUp(true)}
-                variant="outline"
-                className="w-full h-11 bg-slate-800/80 hover:bg-slate-700 border-slate-600 text-white"
-              >
-                회원가입
-              </Button>
+              <div className="flex gap-3">
+                {user ? (
+                  <>
+                    <Button
+                      onClick={() => setShowMyInfo(true)}
+                      variant="outline"
+                      className="flex-1 h-11 text-base font-bold border-2 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900/30"
+                    >
+                      내 정보
+                    </Button>
+                    <span className="flex-1 flex items-center justify-center text-cyan-300 text-sm font-medium truncate px-2">
+                      {profile?.nickname ?? user.email ?? '로그인됨'}
+                    </span>
+                    <Button
+                      onClick={() => signOut()}
+                      variant="outline"
+                      className="flex-1 h-11 text-base font-bold border-2 border-slate-500/50 text-gray-300 hover:bg-slate-800"
+                    >
+                      로그아웃
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      onClick={() => setShowLogin(true)}
+                      variant="outline"
+                      className="flex-1 h-11 text-base font-bold border-2 border-green-500/50 text-green-300 hover:bg-green-900/30"
+                    >
+                      로그인
+                    </Button>
+                    <Button
+                      onClick={() => setShowSignUp(true)}
+                      variant="outline"
+                      className="flex-1 h-11 text-base font-bold border-2 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900/30"
+                    >
+                      회원가입
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
 
             {showStatistics && (
@@ -276,6 +320,12 @@ function App() {
             )}
             {showSignUp && (
               <SignUpScreen onClose={() => setShowSignUp(false)} />
+            )}
+            {showLogin && (
+              <LoginScreen onClose={() => setShowLogin(false)} />
+            )}
+            {showMyInfo && (
+              <MyInfoScreen onClose={() => setShowMyInfo(false)} />
             )}
           </div>
         </div>

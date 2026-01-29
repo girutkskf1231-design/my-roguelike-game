@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
 import { supabase, fetchLeaderboard, type GameScoreRow } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
-import { Trophy, RefreshCw, X } from 'lucide-react';
+import { Trophy, RefreshCw, X, UserCheck } from 'lucide-react';
 import { getClassDisplayName } from '@/data/classes';
+import { hasNicknameForbiddenChars } from '@/lib/nicknameBlocklist';
+import { useAuth } from '@/hooks/useAuth';
 
 const NICKNAME_KEY = 'roguelike-player-name';
+
+/** 허용 문자만 남기기 (한글·영문·숫자·공백) */
+function stripNicknameToAllowed(value: string): string {
+  return value.replace(/[^\p{L}\p{N}\s]/gu, '').trim().slice(0, 20);
+}
 
 /** 초 단위를 MM:SS 또는 HH:MM:SS 문자열로 변환 */
 function formatPlayDuration(seconds: number | null | undefined): string {
@@ -40,6 +47,7 @@ interface LeaderboardScreenProps {
 }
 
 export function LeaderboardScreen({ onClose, embedded }: LeaderboardScreenProps) {
+  const { profile } = useAuth();
   const [scores, setScores] = useState<GameScoreRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -63,8 +71,12 @@ export function LeaderboardScreen({ onClose, embedded }: LeaderboardScreenProps)
     load();
   }, []);
 
+  const nicknameForbiddenChars = nickname.trim() && hasNicknameForbiddenChars(nickname);
+
   const handleNicknameBlur = () => {
-    setStoredPlayerName(nickname);
+    const cleaned = stripNicknameToAllowed(nickname);
+    if (cleaned !== nickname) setNickname(cleaned);
+    setStoredPlayerName(cleaned || nickname.trim().slice(0, 20));
   };
 
   return (
@@ -105,16 +117,20 @@ export function LeaderboardScreen({ onClose, embedded }: LeaderboardScreenProps)
         </div>
 
         <div className="p-4 border-b border-slate-600/50 shrink-0">
-          <label className="text-xs text-gray-400 block mb-1">닉네임 (점수 제출 시 사용)</label>
-          <input
-            type="text"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            onBlur={handleNicknameBlur}
-            placeholder="Guest"
-            maxLength={20}
-            className="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
+          {profile ? (
+            <div className="rounded-lg bg-green-950/40 border border-green-600/50 px-3 py-2.5 flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-green-400 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-green-200">리더보드에는 회원가입 시 입력한 닉네임으로 등재됩니다.</p>
+                <p className="text-xs text-green-400/90 mt-0.5">등재 닉네임: <span className="font-bold text-white">{profile.nickname}</span></p>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg bg-amber-950/40 border border-amber-600/50 px-3 py-2.5">
+              <p className="text-sm font-medium text-amber-200">리더보드 등재는 로그인 후에만 가능합니다.</p>
+              <p className="text-xs text-amber-400/90 mt-0.5">게임 플레이 후 점수는 로그인한 계정의 닉네임으로만 등재됩니다.</p>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-auto p-4">

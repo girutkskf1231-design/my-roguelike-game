@@ -43,7 +43,7 @@ export async function fetchLeaderboard(limit = 20): Promise<GameScoreRow[]> {
   }
 }
 
-/** 점수 제출 (패배/승리 시 호출) - 타이머 정지 시간(초) 포함, 예외/서버 오류 시 false 반환 */
+/** 점수 제출 (패배/승리 시 호출) - 로그인 시 user_id 저장(닉네임 수정 시 리더보드 동기화용) */
 export async function submitScoreToLeaderboard(params: {
   playerName: string;
   score: number;
@@ -51,18 +51,21 @@ export async function submitScoreToLeaderboard(params: {
   difficulty: string;
   classType: string;
   playDurationSeconds?: number;
+  userId?: string;
 }): Promise<boolean> {
   if (!supabase) return false;
   try {
     const sec = params.playDurationSeconds != null ? Math.max(0, Math.floor(params.playDurationSeconds)) : null;
-    const { error } = await supabase.from(TABLE).insert({
+    const row: Record<string, unknown> = {
       player_name: (params.playerName || 'Guest').slice(0, 100),
       score: Number(params.score) || 0,
       wave: Number(params.wave) || 0,
       difficulty: params.difficulty === 'hard' ? 'hard' : 'normal',
       class_type: String(params.classType).slice(0, 50),
       play_duration_seconds: sec,
-    });
+    };
+    if (params.userId) row.user_id = params.userId;
+    const { error } = await supabase.from(TABLE).insert(row);
     return !error;
   } catch {
     return false;
@@ -71,23 +74,13 @@ export async function submitScoreToLeaderboard(params: {
 
 // --- 회원가입 / 인증 ---
 
-/** 이메일 중복 여부: 사용 가능하면 true */
-export async function checkEmailAvailable(email: string): Promise<boolean> {
-  if (!supabase) return false;
-  try {
-    const { data, error } = await supabase.rpc('check_email_available', { e: email.trim().toLowerCase() });
-    if (error) return false;
-    return data === true;
-  } catch {
-    return false;
-  }
-}
-
-/** 닉네임 중복 여부: 사용 가능하면 true */
+/** 닉네임 사용 가능 여부 (중복·공백 제외) - RPC nickname_available 호출 */
 export async function checkNicknameAvailable(nickname: string): Promise<boolean> {
   if (!supabase) return false;
   try {
-    const { data, error } = await supabase.rpc('check_nickname_available', { n: nickname.trim() });
+    const n = String(nickname).trim();
+    if (!n) return false;
+    const { data, error } = await supabase.rpc('nickname_available', { n });
     if (error) return false;
     return data === true;
   } catch {
@@ -95,33 +88,148 @@ export async function checkNicknameAvailable(nickname: string): Promise<boolean>
   }
 }
 
-/** 회원가입 (이메일·비밀번호) 후 프로필(닉네임) 생성. 성공 시 null, 실패 시 에러 메시지 */
-export async function signUpWithEmail(
-  email: string,
-  password: string,
-  nickname: string
-): Promise<{ error: string | null }> {
-  if (!supabase) return { error: '서비스를 사용할 수 없습니다.' };
+export interface SignUpResult {
+  ok: boolean;
+  error?: 'email_taken' | 'nickname_taken' | 'network' | string;
+}
+
+/** 회원가입: 이메일·비밀번호로 가입, 닉네임은 metadata로 전달 후 DB 트리거가 profiles에 저장 */
+export async function signUp(params: {
+  email: string;
+  password: string;
+  nickname: string;
+}): Promise<SignUpResult> {
+  if (!supabase) return { ok: false, error: 'network' };
   try {
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: email.trim().toLowerCase(),
-      password,
-      options: { emailRedirectTo: window.location.origin },
+    const nickname = params.nickname.trim().slice(0, 50);
+    const { error: authError } = await supabase.auth.signUp({
+      email: params.email.trim(),
+      password: params.password,
+      options: {
+        data: { nickname },
+        emailRedirectTo: undefined,
+      },
     });
     if (authError) {
-      const msg = authError.message || '';
-      if (msg.includes('already registered') || msg.includes('already exists')) return { error: '이미 가입된 이메일입니다.' };
-      return { error: authError.message || '가입에 실패했습니다.' };
+      if (authError.message.includes('already registered') || authError.message.includes('already exists')) {
+        return { ok: false, error: 'email_taken' };
+      }
+      return { ok: false, error: authError.message };
     }
-    const uid = authData.user?.id;
-    if (!uid) return { error: '가입 처리 중 오류가 발생했습니다.' };
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: uid,
-      nickname: nickname.trim().slice(0, 50),
-    });
-    if (profileError) return { error: '프로필 생성에 실패했습니다. 고객센터에 문의하세요.' };
-    return { error: null };
+    return { ok: true };
   } catch {
-    return { error: '가입에 실패했습니다.' };
+    return { ok: false, error: 'network' };
+  }
+}
+
+// --- 로그인 / 세션 (자동 로그인 = Supabase 기본 localStorage 세션 유지) ---
+
+export interface AuthProfile {
+  id: string;
+  nickname: string;
+  avatar_url: string | null;
+}
+
+export interface LoginResult {
+  ok: boolean;
+  error?: string;
+}
+
+/** 로그인: 이메일·비밀번호 검증 후 signInWithPassword */
+export async function signIn(email: string, password: string): Promise<LoginResult> {
+  if (!supabase) return { ok: false, error: '서비스를 사용할 수 없습니다.' };
+  try {
+    const e = String(email).trim();
+    const p = String(password);
+    if (!e) return { ok: false, error: '이메일을 입력해 주세요.' };
+    if (!p) return { ok: false, error: '비밀번호를 입력해 주세요.' };
+    const { data, error } = await supabase.auth.signInWithPassword({ email: e, password: p });
+    if (error) {
+      if (error.message.includes('Invalid login')) return { ok: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' };
+      return { ok: false, error: error.message };
+    }
+    return data?.session ? { ok: true } : { ok: false, error: '로그인에 실패했습니다.' };
+  } catch {
+    return { ok: false, error: '네트워크 오류가 발생했습니다.' };
+  }
+}
+
+/** 로그아웃 */
+export async function signOut(): Promise<void> {
+  if (!supabase) return;
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 현재 세션 조회 (자동 로그인 시 복원용) */
+export async function getSession() {
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const PROFILES_TABLE = 'profiles';
+const AVATAR_BUCKET = 'avatars';
+const AVATAR_MAX_BYTES = 90000; // 90KB (90000px → 90KB로 해석)
+
+/** 로그인한 사용자의 프로필(닉네임·아바타) 조회 */
+export async function getProfile(userId: string): Promise<AuthProfile | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from(PROFILES_TABLE).select('id, nickname, avatar_url').eq('id', userId).single();
+    if (error || !data) return null;
+    return data as AuthProfile;
+  } catch {
+    return null;
+  }
+}
+
+export { AVATAR_MAX_BYTES };
+
+export interface UpdateProfileResult {
+  ok: boolean;
+  error?: string;
+}
+
+/** 프로필 닉네임 수정 (DB 트리거가 game_scores.player_name 동기화) */
+export async function updateProfileNickname(userId: string, nickname: string): Promise<UpdateProfileResult> {
+  if (!supabase) return { ok: false, error: '네트워크 오류' };
+  try {
+    const n = String(nickname).trim().slice(0, 50);
+    if (!n || n.length < 2) return { ok: false, error: '닉네임은 2자 이상 입력해 주세요.' };
+    const { error } = await supabase.from(PROFILES_TABLE).update({ nickname: n }).eq('id', userId);
+    if (error) {
+      if (error.code === '23505') return { ok: false, error: '이미 사용 중인 닉네임입니다.' };
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: '네트워크 오류' };
+  }
+}
+
+/** 프로필 사진 업로드 (최대 90KB), 업로드 후 profiles.avatar_url 갱신 */
+export async function uploadAvatar(userId: string, file: File): Promise<UpdateProfileResult> {
+  if (!supabase) return { ok: false, error: '네트워크 오류' };
+  if (file.size > AVATAR_MAX_BYTES) return { ok: false, error: `프로필 사진은 ${AVATAR_MAX_BYTES / 1000}KB 이하여야 합니다.` };
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return { ok: false, error: 'jpg, png, gif, webp만 가능합니다.' };
+  try {
+    const path = `${userId}/avatar.${ext}`;
+    const { error: uploadError } = await supabase.storage.from(AVATAR_BUCKET).upload(path, file, { upsert: true });
+    if (uploadError) return { ok: false, error: uploadError.message };
+    const { data: urlData } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+    const { error: updateError } = await supabase.from(PROFILES_TABLE).update({ avatar_url: urlData.publicUrl }).eq('id', userId);
+    if (updateError) return { ok: false, error: updateError.message };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: '업로드에 실패했습니다.' };
   }
 }
