@@ -14,6 +14,21 @@ try {
 /** Supabase가 설정되지 않았거나 초기화 실패 시 null (리더보드 비활성화, 서버 오류 노출 방지) */
 export const supabase = supabaseInstance;
 
+/** Supabase/서버 측 일반 오류 메시지를 사용자용 한글 메시지로 변환 */
+function normalizeErrorMessage(message: string): string {
+  const m = message.toLowerCase();
+  if (
+    m.includes('unexpected error occurred') ||
+    m.includes('please try again') ||
+    m.includes('contact support') ||
+    m.includes('internal server error') ||
+    m.includes('service temporarily unavailable')
+  ) {
+    return '일시적인 서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요. 계속되면 문의해 주세요.';
+  }
+  return message;
+}
+
 export interface GameScoreRow {
   id: string;
   player_name: string;
@@ -114,7 +129,7 @@ export async function signUp(params: {
       if (authError.message.includes('already registered') || authError.message.includes('already exists')) {
         return { ok: false, error: 'email_taken' };
       }
-      return { ok: false, error: authError.message };
+      return { ok: false, error: normalizeErrorMessage(authError.message) };
     }
     return { ok: true };
   } catch {
@@ -154,7 +169,7 @@ export async function signIn(email: string, password: string): Promise<LoginResu
     const { data, error } = await supabase.auth.signInWithPassword({ email: e, password: p });
     if (error) {
       if (error.message.includes('Invalid login')) return { ok: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' };
-      return { ok: false, error: error.message };
+      return { ok: false, error: normalizeErrorMessage(error.message) };
     }
     return data?.session ? { ok: true } : { ok: false, error: '로그인에 실패했습니다.' };
   } catch {
@@ -207,7 +222,7 @@ export async function updateMobileSettings(userId: string, settings: MobileSetti
     if (typeof settings.movementOnLeft === 'boolean') payload.movementOnLeft = settings.movementOnLeft;
     if (typeof settings.buttonScale === 'number') payload.buttonScale = Math.max(0.8, Math.min(1.5, settings.buttonScale));
     const { error } = await supabase.from(PROFILES_TABLE).update({ mobile_settings: payload }).eq('id', userId);
-    if (error) return { ok: false, error: error.message };
+    if (error) return { ok: false, error: normalizeErrorMessage(error.message) };
     return { ok: true };
   } catch {
     return { ok: false, error: '네트워크 오류' };
@@ -230,7 +245,7 @@ export async function updateProfileNickname(userId: string, nickname: string): P
     const { error } = await supabase.from(PROFILES_TABLE).update({ nickname: n }).eq('id', userId);
     if (error) {
       if (error.code === '23505') return { ok: false, error: '이미 사용 중인 닉네임입니다.' };
-      return { ok: false, error: error.message };
+      return { ok: false, error: normalizeErrorMessage(error.message) };
     }
     return { ok: true };
   } catch {
@@ -247,10 +262,10 @@ export async function uploadAvatar(userId: string, file: File): Promise<UpdatePr
   try {
     const path = `${userId}/avatar.${ext}`;
     const { error: uploadError } = await supabase.storage.from(AVATAR_BUCKET).upload(path, file, { upsert: true });
-    if (uploadError) return { ok: false, error: uploadError.message };
+    if (uploadError) return { ok: false, error: normalizeErrorMessage(uploadError.message) };
     const { data: urlData } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
     const { error: updateError } = await supabase.from(PROFILES_TABLE).update({ avatar_url: urlData.publicUrl }).eq('id', userId);
-    if (updateError) return { ok: false, error: updateError.message };
+    if (updateError) return { ok: false, error: normalizeErrorMessage(updateError.message) };
     return { ok: true };
   } catch {
     return { ok: false, error: '업로드에 실패했습니다.' };
