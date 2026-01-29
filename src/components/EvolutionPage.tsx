@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Sparkles, Sword } from 'lucide-react';
+import { X, Sparkles } from 'lucide-react';
 import type { Weapon, Player } from '../types/game';
 import { canEvolveWeapon, evolveWeapon } from '../utils/gameLogic';
 import { Button } from './ui/button';

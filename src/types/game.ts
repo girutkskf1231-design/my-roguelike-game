@@ -17,7 +17,7 @@ export interface Stats {
   criticalChance: number; // 치명타 확률 (%)
 }
 
-export type ElementType = 'physical' | 'fire' | 'ice' | 'lightning' | 'poison' | 'dark';
+export type ElementType = 'physical' | 'fire' | 'ice' | 'lightning' | 'poison' | 'dark' | 'holy';
 
 /** 패시브 스킬 보너스 (% 단위, 보유 시 항상 적용) */
 export interface PassiveSkillEffect {

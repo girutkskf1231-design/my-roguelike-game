@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, TrendingUp, Sword, Zap, ShieldCheck } from 'lucide-react';
+import { X, TrendingUp, Zap } from 'lucide-react';
 import type { Weapon, Player } from '../types/game';
 import { upgradeWeapon } from '../utils/gameLogic';
 import { Button } from './ui/button';

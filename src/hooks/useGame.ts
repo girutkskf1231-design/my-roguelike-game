@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { GameState, Projectile, Skill, RewardOption, DamageText, Debuff, ElementType, Difficulty, ClassType, Artifact } from '../types/game';
+import type { GameState, Projectile, Skill, RewardOption, DamageText, Debuff, ElementType, Difficulty, ClassType, Artifact, Weapon } from '../types/game';
 import {
   createInitialGameState,
   updatePlayer,
@@ -50,7 +50,7 @@ export const useGame = () => {
   });
 
   const keysPressed = useRef<Set<string>>(new Set());
-  const animationFrameId = useRef<number>();
+  const animationFrameId = useRef<number | undefined>(undefined);
   const gameStartTime = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
   const lastRegenFrameRef = useRef<number>(0);

@@ -1,4 +1,4 @@
-import type { GameState, Player, Boss, Projectile, Platform, SavedGameData, Stats, Skill, Weapon, RewardOption, ClassType, Artifact, PassiveSkillEffect } from '../types/game';
+import type { GameState, Player, Boss, Projectile, Platform, SavedGameData, Stats, Skill, Weapon, RewardOption, ClassType, PassiveSkillEffect } from '../types/game';
 import { STARTER_SKILLS, ALL_SKILLS } from '../data/skills';
 import { DEFAULT_WEAPON, ALL_WEAPONS } from '../data/weapons';
 import { getClassById } from '../data/classes';
@@ -389,8 +389,7 @@ export const updateBoss = (
     // 투사체 속도와 개수를 웨이브에 따라 증가하지만 상한선 설정
     const patternSpeed = Math.min(8, 3 + wave * 0.2); // 최대 속도 8
     const projectileCount = Math.min(20, 8 + Math.floor(wave * 0.8)); // 최대 20개
-    const phase = Math.floor((wave - 1) / 5) + 1;
-    
+
     // 데미지 계산 (웨이브가 높아질수록 증가하지만 완만하게)
     const baseDamage = Math.min(50, 10 + wave * 0.5); // 최대 50
     const mediumDamage = Math.min(45, 8 + wave * 0.4); // 최대 45
@@ -403,10 +402,6 @@ export const updateBoss = (
     // Wave 15-99: 패턴 0-5 (6개)
     // Wave 100 (Normal): 패턴 0-9 (10개)
     // Wave 100 (Hard): 패턴 0-19 (20개)
-    let maxPattern = Math.min(5, 2 + Math.floor(wave / 5));
-    if (wave >= 100) {
-      maxPattern = difficulty === 'hard' ? 19 : 9; // 하드: 20개, 노말: 10개
-    }
 
     if (newBoss.currentPattern === 0) {
       // 패턴 0: 플레이어 조준 연속 발사
@@ -948,7 +943,7 @@ export const updateBoss = (
   // 디버프 체크 (스턴, 둔화)
   const isStunned = newBoss.debuffs.some(d => d.stunned);
   const slowDebuff = newBoss.debuffs.find(d => d.slowAmount);
-  const slowMultiplier = slowDebuff ? (1 - slowDebuff.slowAmount) : 1;
+  const slowMultiplier = slowDebuff ? (1 - (slowDebuff.slowAmount ?? 0)) : 1;
 
   // 보스 이동 (좌우 + 상하) - 스턴되지 않았을 때만
   if (!isStunned) {
@@ -1149,7 +1144,7 @@ export const evolveWeapon = (weapon: Weapon): Weapon | null => {
 };
 
 // 보상 선택지 생성 (3개)
-export const generateRewardOptions = (player: Player, wave: number): RewardOption[] => {
+export const generateRewardOptions = (player: Player, _wave: number): RewardOption[] => {
   const options: RewardOption[] = [];
   
   // 플레이어 직업에 맞는 스킬 필터링
