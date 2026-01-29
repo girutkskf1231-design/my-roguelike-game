@@ -124,10 +124,18 @@ export async function signUp(params: {
 
 // --- 로그인 / 세션 (자동 로그인 = Supabase 기본 localStorage 세션 유지) ---
 
+export interface MobileSettings {
+  /** 좌측(true) / 우측(false) 이동·점프 배치 */
+  movementOnLeft?: boolean;
+  /** 버튼 크기 배율 (0.8 ~ 1.5) */
+  buttonScale?: number;
+}
+
 export interface AuthProfile {
   id: string;
   nickname: string;
   avatar_url: string | null;
+  mobile_settings?: MobileSettings | null;
 }
 
 export interface LoginResult {
@@ -179,15 +187,30 @@ const PROFILES_TABLE = 'profiles';
 const AVATAR_BUCKET = 'avatars';
 const AVATAR_MAX_BYTES = 90000; // 90KB (90000px → 90KB로 해석)
 
-/** 로그인한 사용자의 프로필(닉네임·아바타) 조회 */
+/** 로그인한 사용자의 프로필(닉네임·아바타·모바일 설정) 조회 */
 export async function getProfile(userId: string): Promise<AuthProfile | null> {
   if (!supabase) return null;
   try {
-    const { data, error } = await supabase.from(PROFILES_TABLE).select('id, nickname, avatar_url').eq('id', userId).single();
+    const { data, error } = await supabase.from(PROFILES_TABLE).select('id, nickname, avatar_url, mobile_settings').eq('id', userId).single();
     if (error || !data) return null;
     return data as AuthProfile;
   } catch {
     return null;
+  }
+}
+
+/** 모바일 컨트롤 설정 저장 (Supabase profiles.mobile_settings) */
+export async function updateMobileSettings(userId: string, settings: MobileSettings): Promise<UpdateProfileResult> {
+  if (!supabase) return { ok: false, error: '네트워크 오류' };
+  try {
+    const payload: MobileSettings = {};
+    if (typeof settings.movementOnLeft === 'boolean') payload.movementOnLeft = settings.movementOnLeft;
+    if (typeof settings.buttonScale === 'number') payload.buttonScale = Math.max(0.8, Math.min(1.5, settings.buttonScale));
+    const { error } = await supabase.from(PROFILES_TABLE).update({ mobile_settings: payload }).eq('id', userId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: '네트워크 오류' };
   }
 }
 

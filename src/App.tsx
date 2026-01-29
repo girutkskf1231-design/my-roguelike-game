@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import type { Difficulty, ClassType } from './types/game';
 import { useGame } from './hooks/useGame';
 import { GameCanvas } from './components/GameCanvas';
@@ -16,8 +16,10 @@ import { LeaderboardScreen, getStoredPlayerName } from './components/Leaderboard
 import { SignUpScreen } from './components/SignUpScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { MyInfoScreen } from './components/MyInfoScreen';
-import { submitScoreToLeaderboard } from './lib/supabase';
+import { submitScoreToLeaderboard, updateMobileSettings } from './lib/supabase';
+import type { MobileSettings } from './lib/supabase';
 import { useAuth } from './hooks/useAuth';
+import { MobileControls } from './components/MobileControls';
 import { Button } from './components/ui/button';
 import {
   Crown,
@@ -69,6 +71,7 @@ function App() {
     unequipArtifact,
     playElapsedSeconds,
     getLastPlayDuration,
+    setMovementKeys,
   } = useGame();
 
   // UI 패널 표시 상태 (초기값: INITIAL_PANEL_STATE)
@@ -89,6 +92,53 @@ function App() {
 
   // 메뉴/선택 상태
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
+
+  // 모바일 컨트롤 설정 (로컬 덮어쓰기 → Supabase profile → localStorage)
+  const [localMobileSettings, setLocalMobileSettings] = useState<MobileSettings | null>(null);
+  const mobileSettings: MobileSettings = useMemo(() => {
+    if (localMobileSettings) return localMobileSettings;
+    const fromProfile = profile?.mobile_settings;
+    if (fromProfile && typeof fromProfile === 'object') return fromProfile;
+    try {
+      const raw = localStorage.getItem('roguelike-mobile-settings');
+      if (raw) return JSON.parse(raw) as MobileSettings;
+    } catch {
+      /* ignore */
+    }
+    return { movementOnLeft: true };
+  }, [localMobileSettings, profile?.mobile_settings]);
+
+  const handleMobileSettingsChange = useCallback(
+    (next: MobileSettings) => {
+      setLocalMobileSettings(next);
+      try {
+        localStorage.setItem('roguelike-mobile-settings', JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      if (user?.id) {
+        updateMobileSettings(user.id, next).catch(() => {});
+      }
+    },
+    [user?.id]
+  );
+
+  // 게임 영역 반응형 스케일 (모바일에서 800x600 비율 유지)
+  const gameContainerRef = useRef<HTMLDivElement>(null);
+  const [gameScale, setGameScale] = useState(1);
+  useEffect(() => {
+    const el = gameContainerRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      if (w > 0 && h > 0) setGameScale(Math.min(1, w / 800, h / 600));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [gameState.gameStatus]);
 
   // 게임 종료 시 리더보드에 점수 제출 (전사는 제외, 한 번만)
   const lastSubmittedRef = useRef<string | null>(null);
@@ -359,18 +409,36 @@ function App() {
       {/* 실제 게임 화면 */}
       {gameState.gameStatus === 'playing' && (
         <div
-          className={`flex items-stretch gap-3 ${
+          className={`flex flex-col md:flex-row items-center md:items-stretch gap-3 ${
             showInventory ||
             showUpgrade ||
             showEvolution ||
             showFusion ||
             showArtifacts
-              ? 'flex-row'
+              ? 'md:flex-row'
               : ''
           }`}
         >
-          {/* 왼쪽: 게임 캔버스 + 상단/하단 UI */}
-          <div className="relative w-[800px] h-[600px] bg-slate-900 rounded-lg shadow-2xl border-4 border-slate-700 shrink-0">
+          {/* 왼쪽: 게임 캔버스 + 상단/하단 UI (반응형 스케일) */}
+          <div
+            ref={gameContainerRef}
+            className="shrink-0 rounded-lg shadow-2xl border-4 border-slate-700 w-full max-w-[800px] aspect-[8/6] max-h-[80dvh] md:w-[800px] md:h-[600px] md:aspect-auto md:max-h-none flex items-center justify-center overflow-hidden"
+            style={
+              gameScale < 1
+                ? { width: 800 * gameScale, height: 600 * gameScale }
+                : undefined
+            }
+          >
+            <div
+              className="rounded-lg overflow-hidden bg-slate-900"
+              style={{
+                width: 800,
+                height: 600,
+                transform: gameScale < 1 ? `scale(${gameScale})` : undefined,
+                transformOrigin: 'top left',
+              }}
+            >
+              <div className="relative w-[800px] h-[600px] bg-slate-900 overflow-hidden">
             {/* 캔버스 */}
             <div className="absolute inset-0">
               <GameCanvas gameState={gameState} gameStateRef={gameState.gameStatus === 'playing' ? gameStateRef : undefined} />
@@ -784,6 +852,18 @@ function App() {
               <div className="bg-black/60 rounded px-3 py-1 text-[10px] text-gray-400">
                 A/D: 이동 | Space/W: 점프 | Shift: 회피 | J: 공격 | 1/2/3: 스킬 | ESC:
                 일시정지 | I: 인벤토리 | U: 아티펙트
+              </div>
+            </div>
+
+            {/* 모바일 터치 컨트롤 (md 이하에서만 표시) */}
+            {!gameState.isPaused && (
+              <MobileControls
+                setMovementKeys={setMovementKeys}
+                movementOnLeft={mobileSettings.movementOnLeft ?? true}
+                buttonScale={mobileSettings.buttonScale ?? 1}
+                onLayoutChange={handleMobileSettingsChange}
+              />
+            )}
               </div>
             </div>
           </div>

@@ -791,6 +791,14 @@ export const useGame = () => {
     }));
   }, []);
 
+  /** 모바일 터치: 좌/우 이동 키 상태 설정 (keysPressed와 동기화) */
+  const setMovementKeys = useCallback((left: boolean, right: boolean) => {
+    if (left) keysPressed.current.add('a');
+    else keysPressed.current.delete('a');
+    if (right) keysPressed.current.add('d');
+    else keysPressed.current.delete('d');
+  }, []);
+
   // 키보드 이벤트 핸들러
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -2268,5 +2276,6 @@ export const useGame = () => {
     unequipArtifact,
     playElapsedSeconds,
     getLastPlayDuration,
+    setMovementKeys,
   };
 };
