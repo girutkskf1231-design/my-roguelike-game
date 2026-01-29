@@ -49,9 +49,13 @@ export const useGame = () => {
     return savedData?.highScore ?? 0;
   });
 
+  /** 타이머: 직업 선택 후 플레이 중일 때만 증가, 일시정지 시 멈춤, 승/패 시 정지값 유지 */
+  const [playElapsedSeconds, setPlayElapsedSeconds] = useState(0);
+
   const keysPressed = useRef<Set<string>>(new Set());
   const animationFrameId = useRef<number | undefined>(undefined);
   const gameStartTime = useRef<number>(0);
+  const lastPlayDurationRef = useRef<number>(0); // 승리/패배 시 정지된 플레이 시간(초)
   const frameCountRef = useRef<number>(0);
   const lastRegenFrameRef = useRef<number>(0);
   const gameStateRef = useRef<GameState>(gameState);
@@ -60,6 +64,25 @@ export const useGame = () => {
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  // 타이머: 승/패 시 정지된 시간을 화면에 반영
+  useEffect(() => {
+    if (gameState.gameStatus === 'defeat' || gameState.gameStatus === 'victory') {
+      setPlayElapsedSeconds(lastPlayDurationRef.current);
+    }
+    if (gameState.gameStatus === 'menu') {
+      setPlayElapsedSeconds(0);
+    }
+  }, [gameState.gameStatus]);
+
+  // 타이머: 플레이 중이고 일시정지가 아닐 때만 1초마다 갱신
+  useEffect(() => {
+    if (gameState.gameStatus !== 'playing' || gameState.isPaused) return;
+    const interval = setInterval(() => {
+      setPlayElapsedSeconds(Math.floor((Date.now() - gameStartTime.current) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [gameState.gameStatus, gameState.isPaused]);
 
   // 보상 선택 핸들러
   const handleRewardSelect = useCallback((option: RewardOption) => {
@@ -1436,6 +1459,7 @@ export const useGame = () => {
           // 웨이브 100 클리어 시 게임 완전 클리어
           if (prev.wave >= MAX_WAVE) {
             newGameStatus = 'victory';
+            lastPlayDurationRef.current = Math.floor((Date.now() - gameStartTime.current) / 1000); // 타이머 정지
             const newHighScore = Math.max(highScore, newScore);
             setHighScore(newHighScore);
             localStorage.setItem('roguelike-highscore', JSON.stringify(newHighScore));
@@ -1619,6 +1643,7 @@ export const useGame = () => {
         // 패배 조건
         if (newPlayer.health <= 0) {
           newGameStatus = 'defeat';
+          lastPlayDurationRef.current = Math.floor((Date.now() - gameStartTime.current) / 1000); // 타이머 정지
           
           // 패배 시 하이스코어만 업데이트하고 저장 데이터는 삭제
           const newHighScore = Math.max(highScore, newScore);
@@ -2217,6 +2242,9 @@ export const useGame = () => {
     });
   }, [highScore]);
 
+  /** 승리/패배 시 정지된 플레이 시간(초). 리더보드 제출 시 사용 */
+  const getLastPlayDuration = useCallback(() => lastPlayDurationRef.current, []);
+
   return {
     gameState,
     gameStateRef,
@@ -2238,5 +2266,7 @@ export const useGame = () => {
     fuseWeaponsInInventory,
     equipArtifact,
     unequipArtifact,
+    playElapsedSeconds,
+    getLastPlayDuration,
   };
 };

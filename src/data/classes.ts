@@ -86,3 +86,9 @@ export const ALL_CLASSES: ClassInfo[] = [
 export function getClassById(classId: string): ClassInfo | undefined {
   return ALL_CLASSES.find(c => c.id === classId);
 }
+
+/** 리더보드 등 직업 ID → 표시 이름 (예: warrior → 전사) */
+export function getClassDisplayName(classId: string): string {
+  const info = getClassById(classId);
+  return info ? info.name : classId;
+}

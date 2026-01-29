@@ -13,6 +13,7 @@ import FusionPage from './components/FusionPage';
 import { StatisticsContent } from './components/StatisticsScreen';
 import ArtifactScreen from './components/ArtifactScreen';
 import { LeaderboardScreen, getStoredPlayerName } from './components/LeaderboardScreen';
+import { SignUpScreen } from './components/SignUpScreen';
 import { submitScoreToLeaderboard } from './lib/supabase';
 import { Button } from './components/ui/button';
 import {
@@ -28,6 +29,7 @@ import {
   TrendingUp,
   Sword,
   Trophy,
+  Clock,
 } from 'lucide-react';
 import './App.css';
 
@@ -62,6 +64,8 @@ function App() {
     fuseWeaponsInInventory,
     equipArtifact,
     unequipArtifact,
+    playElapsedSeconds,
+    getLastPlayDuration,
   } = useGame();
 
   // UI 패널 표시 상태 (초기값: INITIAL_PANEL_STATE)
@@ -74,17 +78,19 @@ function App() {
   const [showStats, setShowStats] = useState<boolean>(INITIAL_PANEL_STATE.showStats);
   const [showSkillSelect, setShowSkillSelect] = useState<boolean>(INITIAL_PANEL_STATE.showSkillSelect);
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
+  const [showSignUp, setShowSignUp] = useState<boolean>(false);
 
   // 메뉴/선택 상태
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
 
-  // 게임 종료 시 리더보드에 점수 제출 (한 번만)
+  // 게임 종료 시 리더보드에 점수 제출 (전사는 제외, 한 번만)
   const lastSubmittedRef = useRef<string | null>(null);
   useEffect(() => {
     if (gameState.gameStatus !== 'defeat' && gameState.gameStatus !== 'victory') {
       lastSubmittedRef.current = null;
       return;
     }
+    if (gameState.player.class === 'warrior') return; // 전사는 리더보드 등재 안 함
     const key = `${gameState.score}-${gameState.wave}-${gameState.gameStatus}`;
     if (lastSubmittedRef.current === key) return;
     lastSubmittedRef.current = key;
@@ -94,8 +100,9 @@ function App() {
       wave: gameState.wave,
       difficulty: gameState.difficulty,
       classType: gameState.player.class,
+      playDurationSeconds: getLastPlayDuration(),
     }).catch(() => {});
-  }, [gameState.gameStatus, gameState.score, gameState.wave, gameState.difficulty, gameState.player.class]);
+  }, [gameState.gameStatus, gameState.score, gameState.wave, gameState.difficulty, gameState.player.class, getLastPlayDuration]);
 
   // UI에서 자주 쓰는 값 메모이제이션
   const uiData = useMemo(() => {
@@ -162,6 +169,7 @@ function App() {
       setShowArtifacts(INITIAL_PANEL_STATE.showArtifacts);
       setShowStats(INITIAL_PANEL_STATE.showStats);
       setShowLeaderboard(false);
+      setShowSignUp(false);
     }
   }, [gameState.gameStatus]);
 
@@ -232,20 +240,29 @@ function App() {
               💡 하드 모드는 웨이브 100에서 압도적인 탄막 패턴이 추가됩니다
             </div>
 
-            <div className="mt-4 flex gap-3">
+            <div className="mt-4 flex flex-col gap-3">
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setShowLeaderboard(true)}
+                  className="flex-1 bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-700 hover:to-amber-700 h-12 text-base font-bold border-2 border-yellow-400"
+                >
+                  <Trophy className="w-5 h-5 mr-2" />
+                  🏆 리더보드
+                </Button>
+                <Button
+                  onClick={() => setShowStatistics(prev => !prev)}
+                  className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 h-12 text-base font-bold border-2 border-purple-400"
+                >
+                  <TrendingUp className="w-5 h-5 mr-2" />
+                  📊 통계 보기
+                </Button>
+              </div>
               <Button
-                onClick={() => setShowLeaderboard(true)}
-                className="flex-1 bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-700 hover:to-amber-700 h-12 text-base font-bold border-2 border-yellow-400"
+                onClick={() => setShowSignUp(true)}
+                variant="outline"
+                className="w-full h-11 bg-slate-800/80 hover:bg-slate-700 border-slate-600 text-white"
               >
-                <Trophy className="w-5 h-5 mr-2" />
-                🏆 리더보드
-              </Button>
-              <Button
-                onClick={() => setShowStatistics(prev => !prev)}
-                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 h-12 text-base font-bold border-2 border-purple-400"
-              >
-                <TrendingUp className="w-5 h-5 mr-2" />
-                📊 통계 보기
+                회원가입
               </Button>
             </div>
 
@@ -256,6 +273,9 @@ function App() {
             )}
             {showLeaderboard && (
               <LeaderboardScreen onClose={() => setShowLeaderboard(false)} />
+            )}
+            {showSignUp && (
+              <SignUpScreen onClose={() => setShowSignUp(false)} />
             )}
           </div>
         </div>
@@ -376,6 +396,18 @@ function App() {
                           }`}
                         >
                           {gameState.wave} / 100
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-900/95 rounded-lg px-4 py-2.5 border border-cyan-500/50">
+                      <div className="text-center">
+                        <div className="text-cyan-400 text-[10px] font-semibold mb-1 flex items-center justify-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          TIME
+                        </div>
+                        <div className="text-white font-bold text-base tabular-nums">
+                          {Math.floor(playElapsedSeconds / 60)}:{(playElapsedSeconds % 60).toString().padStart(2, '0')}
                         </div>
                       </div>
                     </div>

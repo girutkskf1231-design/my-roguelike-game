@@ -2,8 +2,21 @@ import { useEffect, useState } from 'react';
 import { supabase, fetchLeaderboard, type GameScoreRow } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Trophy, RefreshCw, X } from 'lucide-react';
+import { getClassDisplayName } from '@/data/classes';
 
 const NICKNAME_KEY = 'roguelike-player-name';
+
+/** 초 단위를 MM:SS 또는 HH:MM:SS 문자열로 변환 */
+function formatPlayDuration(seconds: number | null | undefined): string {
+  if (seconds == null || seconds < 0) return '—';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) {
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
 
 export function getStoredPlayerName(): string {
   try {
@@ -130,22 +143,27 @@ export function LeaderboardScreen({ onClose, embedded }: LeaderboardScreenProps)
                   <tr className="text-left text-gray-400 border-b border-slate-600/50">
                     <th className="pb-2 pr-2 w-10">#</th>
                     <th className="pb-2 pr-2">닉네임</th>
-                    <th className="pb-2 pr-2 text-right">점수</th>
-                    <th className="pb-2 pr-2 text-right">웨이브</th>
+                    <th className="pb-2 pr-2 whitespace-nowrap">도달 시간</th>
                     <th className="pb-2 pr-2">난이도</th>
                     <th className="pb-2 pr-2">직업</th>
-                    <th className="pb-2 text-right whitespace-nowrap">날짜</th>
+                    <th className="pb-2 pr-2 whitespace-nowrap">플레이 시간</th>
+                    <th className="pb-2 text-right">점수</th>
                   </tr>
                 </thead>
                 <tbody>
                   {scores.map((row, i) => (
                     <tr key={row.id} className="border-b border-slate-700/50 text-gray-300">
-                      <td className="py-2 pr-2 font-bold text-yellow-400/90">
-                        {i + 1}
-                      </td>
+                      <td className="py-2 pr-2 font-bold text-yellow-400/90">{i + 1}</td>
                       <td className="py-2 pr-2 font-medium text-white">{row.player_name}</td>
-                      <td className="py-2 pr-2 text-right text-yellow-300">{row.score.toLocaleString()}</td>
-                      <td className="py-2 pr-2 text-right">{row.wave}</td>
+                      <td className="py-2 pr-2 text-gray-400 whitespace-nowrap">
+                        {new Date(row.created_at).toLocaleString('ko-KR', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit',
+                        })}
+                      </td>
                       <td className="py-2 pr-2">
                         <span
                           className={
@@ -157,14 +175,14 @@ export function LeaderboardScreen({ onClose, embedded }: LeaderboardScreenProps)
                           {row.difficulty === 'hard' ? '하드' : '노말'}
                         </span>
                       </td>
-                      <td className="py-2 pr-2 text-gray-400">{row.class_type}</td>
-                      <td className="py-2 text-right text-gray-500 whitespace-nowrap">
-                        {new Date(row.created_at).toLocaleDateString('ko-KR', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                      <td className="py-2 pr-2 text-gray-400">
+                        {getClassDisplayName(row.class_type)}
+                      </td>
+                      <td className="py-2 pr-2 text-gray-400 whitespace-nowrap">
+                        {formatPlayDuration(row.play_duration_seconds)}
+                      </td>
+                      <td className="py-2 text-right text-yellow-300 font-medium">
+                        {row.score.toLocaleString()}
                       </td>
                     </tr>
                   ))}
