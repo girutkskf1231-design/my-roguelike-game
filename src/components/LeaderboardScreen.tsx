@@ -3,15 +3,9 @@ import { supabase, fetchLeaderboard, type GameScoreRow } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Trophy, RefreshCw, X, UserCheck } from 'lucide-react';
 import { getClassDisplayName } from '@/data/classes';
-import { hasNicknameForbiddenChars } from '@/lib/nicknameBlocklist';
 import { useAuth } from '@/hooks/useAuth';
 
 const NICKNAME_KEY = 'roguelike-player-name';
-
-/** 허용 문자만 남기기 (한글·영문·숫자·공백) */
-function stripNicknameToAllowed(value: string): string {
-  return value.replace(/[^\p{L}\p{N}\s]/gu, '').trim().slice(0, 20);
-}
 
 /** 초 단위를 MM:SS 또는 HH:MM:SS 문자열로 변환 */
 function formatPlayDuration(seconds: number | null | undefined): string {
@@ -51,7 +45,6 @@ export function LeaderboardScreen({ onClose, embedded }: LeaderboardScreenProps)
   const [scores, setScores] = useState<GameScoreRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [nickname, setNickname] = useState(getStoredPlayerName);
 
   const load = async () => {
     setLoading(true);
@@ -70,14 +63,6 @@ export function LeaderboardScreen({ onClose, embedded }: LeaderboardScreenProps)
   useEffect(() => {
     load();
   }, []);
-
-  const nicknameForbiddenChars = nickname.trim() && hasNicknameForbiddenChars(nickname);
-
-  const handleNicknameBlur = () => {
-    const cleaned = stripNicknameToAllowed(nickname);
-    if (cleaned !== nickname) setNickname(cleaned);
-    setStoredPlayerName(cleaned || nickname.trim().slice(0, 20));
-  };
 
   return (
     <div

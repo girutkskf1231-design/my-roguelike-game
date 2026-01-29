@@ -15,12 +15,13 @@ export function useAuth() {
   }, []);
 
   useEffect(() => {
-    if (!supabase) {
+    const client = supabase;
+    if (!client) {
       setLoading(false);
       return;
     }
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await client.auth.getSession();
       const s = data?.session ?? null;
       setSession(s);
       setUser(s?.user ?? null);
@@ -29,7 +30,7 @@ export function useAuth() {
     };
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, s) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, s) => {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user?.id) await loadProfile(s.user.id);
