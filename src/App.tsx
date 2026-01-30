@@ -943,21 +943,21 @@ function App() {
         </div>
       )}
 
-      {/* 일시 정지 화면 - z-50으로 HUD 위에 표시, 내부 요소 세로 배치로 겹침 방지 */}
+      {/* 일시 정지 화면 - HUD 위에 완전히 덮이도록 z-[100] 사용 */}
       {gameState.isPaused && gameState.gameStatus === 'playing' && (
-        <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center pointer-events-auto">
-          <div className="bg-slate-900/95 rounded-lg p-8 border-4 border-blue-600 shadow-2xl min-w-[280px] max-w-[90vw] flex flex-col items-center gap-5 text-center">
-            <div className="text-6xl shrink-0" aria-hidden>⏸️</div>
-            <h2 className="text-4xl text-blue-400 font-bold shrink-0">
+        <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center pointer-events-auto">
+          <div className="bg-slate-900/95 rounded-lg p-8 border-4 border-blue-600 text-center shadow-2xl min-w-[320px] max-w-[90vw] flex flex-col items-stretch gap-6">
+            <div className="text-6xl shrink-0">⏸️</div>
+            <h2 className="text-4xl text-blue-400 font-bold shrink-0 leading-tight">
               일시 정지
             </h2>
-            <div className="flex flex-col gap-2 text-gray-300 shrink-0">
-              <p className="text-base">게임이 일시 정지되었습니다</p>
-              <p className="text-sm text-gray-400 whitespace-normal">
-                ESC 키를 눌러 계속하기 · I 키로 인벤토리 열기
+            <div className="text-gray-300 flex flex-col gap-2 shrink-0">
+              <p className="block">게임이 일시 정지되었습니다</p>
+              <p className="text-sm text-gray-400 block whitespace-normal">
+                ESC 키를 눌러 계속하기 | I 키로 인벤토리 열기
               </p>
             </div>
-            <div className="flex flex-col gap-3 w-full shrink-0">
+            <div className="flex flex-col gap-3 shrink-0">
               <Button
                 onClick={() => {
                   togglePause();

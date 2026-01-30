@@ -44,6 +44,23 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 이메일·비밀번호 로그인/회원가입은 위 설정만으로 동작합니다.
 
+### 이메일 발송량 늘리기
+
+- **기본**: Supabase 내장 SMTP는 **시간당 2통**으로 제한됩니다. 이 한도는 대시보드에서 올릴 수 없습니다.
+- **발송량을 늘리려면** [커스텀 SMTP](https://supabase.com/docs/guides/auth/auth-smtp)를 설정한 뒤, 아래처럼 **Rate Limit**을 조정하세요.
+
+1. **대시보드**: [Authentication → Rate Limits](https://supabase.com/dashboard/project/_/auth/rate-limits)에서 **Emails sent per hour** (`rate_limit_email_sent`) 값을 늘립니다 (예: 10, 30).
+2. **Management API** (커스텀 SMTP 사용 시):
+   - [Account Tokens](https://supabase.com/dashboard/account/tokens)에서 액세스 토큰 발급
+   - 프로젝트 ref 확인 후:
+   ```bash
+   curl -X PATCH "https://api.supabase.com/v1/projects/YOUR_PROJECT_REF/config/auth" \
+     -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"rate_limit_email_sent": 30}'
+   ```
+3. **SMTP 연동**: Resend, SendGrid, AWS SES, Brevo 등 외부 SMTP를 **Project Settings → Auth → SMTP**에서 설정하면 위 한도 조정이 적용됩니다.
+
 ## 4. 데이터베이스 마이그레이션
 
 마이그레이션 파일은 `supabase/migrations/`에 있으며, **순서대로** 적용해야 합니다.
