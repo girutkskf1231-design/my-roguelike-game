@@ -424,6 +424,16 @@ export async function deletePlayerInventory(userId: string): Promise<UpdateProfi
   }
 }
 
+/** get_inventory_stats RPC 응답 타입 */
+interface InventoryStatsRpcRow {
+  total_weapons: number;
+  total_skills: number;
+  total_artifacts: number;
+  equipped_weapon_name: string;
+  player_level: number;
+  current_wave: number;
+}
+
 /** 인벤토리 통계 조회 */
 export async function getInventoryStats(userId: string): Promise<{
   totalWeapons: number;
@@ -445,13 +455,14 @@ export async function getInventoryStats(userId: string): Promise<{
       return null;
     }
     
+    const row = data as InventoryStatsRpcRow;
     return {
-      totalWeapons: data.total_weapons,
-      totalSkills: data.total_skills,
-      totalArtifacts: data.total_artifacts,
-      equippedWeaponName: data.equipped_weapon_name,
-      playerLevel: data.player_level,
-      currentWave: data.current_wave,
+      totalWeapons: row.total_weapons,
+      totalSkills: row.total_skills,
+      totalArtifacts: row.total_artifacts,
+      equippedWeaponName: row.equipped_weapon_name,
+      playerLevel: row.player_level,
+      currentWave: row.current_wave,
     };
   } catch (err) {
     console.error('인벤토리 통계 조회 예외:', err);
