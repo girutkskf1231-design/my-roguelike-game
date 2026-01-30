@@ -73,14 +73,9 @@ export function useInventorySync({
     isSavingRef.current = true;
     try {
       const result = await savePlayerInventory(inventoryData);
-      if (result.ok) {
-        lastSaveRef.current = Date.now();
-        console.log('✅ 인벤토리 저장 완료');
-      } else {
-        console.error('❌ 인벤토리 저장 실패:', result.error);
-      }
-    } catch (error) {
-      console.error('❌ 인벤토리 저장 예외:', error);
+      if (result.ok) lastSaveRef.current = Date.now();
+    } catch {
+      // 저장 실패 시 무시 (논블로킹)
     } finally {
       isSavingRef.current = false;
     }
@@ -92,14 +87,8 @@ export function useInventorySync({
 
     try {
       const data = await getPlayerInventory(userId);
-      if (data) {
-        console.log('✅ 인벤토리 로드 완료:', data);
-        return data;
-      }
-      console.log('ℹ️ 저장된 인벤토리 없음 (첫 게임)');
-      return null;
-    } catch (error) {
-      console.error('❌ 인벤토리 로드 예외:', error);
+      return data ?? null;
+    } catch {
       return null;
     }
   }, [enabled, userId]);
