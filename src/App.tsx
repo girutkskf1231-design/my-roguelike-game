@@ -152,7 +152,7 @@ function App() {
     const key = `${gameState.score}-${gameState.wave}-${gameState.gameStatus}`;
     if (lastSubmittedRef.current === key) return;
     lastSubmittedRef.current = key;
-    submitScoreToLeaderboard({
+    void submitScoreToLeaderboard({
       playerName: profile?.nickname ?? getStoredPlayerName() ?? 'Guest',
       score: gameState.score,
       wave: gameState.wave,

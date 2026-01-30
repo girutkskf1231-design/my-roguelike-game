@@ -8,8 +8,17 @@ interface GameCanvasProps {
   gameStateRef?: React.RefObject<GameState>;
 }
 
+const STAR_COUNT = 50;
+const STARS = Array.from({ length: STAR_COUNT }, (_, i) => ({
+  x: (i * 123) % CANVAS_WIDTH,
+  y: (i * 456) % (CANVAS_HEIGHT / 2),
+  size: (i % 3) + 1,
+  alpha: 0.3 + (i % 5) * 0.15,
+}));
+
 const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const drawTimeRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -18,23 +27,25 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
-    const draw = (state: GameState) => {
-    // 배경 그리기 (그라데이션)
     const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
     bgGradient.addColorStop(0, '#0f172a');
     bgGradient.addColorStop(0.5, '#1e1b4b');
     bgGradient.addColorStop(1, '#1a1a2e');
+
+    const draw = (state: GameState) => {
+    drawTimeRef.current = performance.now();
+    const t = drawTimeRef.current;
+
+    // 배경 그리기 (캐시된 그라데이션)
     ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    
-    // 별 효과
+
+    // 별 효과 (사전 계산된 위치)
     ctx.fillStyle = '#ffffff';
-    for (let i = 0; i < 50; i++) {
-      const x = (i * 123) % CANVAS_WIDTH;
-      const y = (i * 456) % (CANVAS_HEIGHT / 2);
-      const size = (i % 3) + 1;
-      ctx.globalAlpha = 0.3 + (i % 5) * 0.15;
-      ctx.fillRect(x, y, size, size);
+    for (let i = 0; i < STAR_COUNT; i++) {
+      const s = STARS[i];
+      ctx.globalAlpha = s.alpha;
+      ctx.fillRect(s.x, s.y, s.size, s.size);
     }
     ctx.globalAlpha = 1;
 
@@ -364,9 +375,9 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
       ctx.fillStyle = '#d97706';
       ctx.fillRect(quiverX + 1, py + 10, 2, 4);
     } else if (player.class === 'mage') {
-      // 마법사: 떠다니는 마법 구슬
+      // 마법사: 떠다니는 마법 구슬 (프레임 시간 기반, Date.now 제거)
       const orbX = player.facingRight ? px + 28 : px - 4;
-      const orbY = py + 8 + Math.sin(Date.now() / 200) * 2;
+      const orbY = py + 8 + Math.sin(t / 200) * 2;
       ctx.fillStyle = colors.decoration;
       ctx.globalAlpha = 0.7;
       ctx.fillRect(orbX, orbY, 4, 4);
@@ -782,7 +793,8 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
         ctx.globalAlpha = 0.6;
         for (let i = 0; i < 4; i++) {
           ctx.fillStyle = gemColor;
-          ctx.fillRect(staffX - 2 + Math.random() * 6, staffY - 10 - i * 4, 3, 3);
+          const off = ((i * 11 + Math.floor(t / 80)) % 7) - 2;
+          ctx.fillRect(staffX + off, staffY - 10 - i * 4, 3, 3);
         }
         ctx.globalAlpha = 1;
       }
@@ -941,9 +953,9 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
       ctx.fillRect(bx + 24 + i * 3, by + 24, 2, 3);
     }
     
-    // 공격 준비 시 이펙트
+    // 공격 준비 시 이펙트 (프레임 시간 기반)
     if (boss.patternCooldown < 10) {
-      ctx.globalAlpha = 0.5 + (Math.sin(Date.now() / 100) * 0.3);
+      ctx.globalAlpha = 0.5 + (Math.sin(t / 100) * 0.3);
       ctx.fillStyle = bossColors.glow;
       ctx.beginPath();
       ctx.arc(bx + boss.width / 2, by + boss.height / 2, 40, 0, Math.PI * 2);

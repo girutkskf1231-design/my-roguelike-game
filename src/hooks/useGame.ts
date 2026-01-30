@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, startTransition } from 'react';
 import type { GameState, Projectile, Skill, RewardOption, DamageText, Debuff, ElementType, Difficulty, ClassType, Artifact, Weapon } from '../types/game';
 import {
   createInitialGameState,
@@ -1129,8 +1129,9 @@ export const useGame = () => {
 
     const gameLoop = () => {
       frameCountRef.current += 1;
-      setGameState((prev) => {
-        // 플레이어 업데이트
+      startTransition(() => {
+        setGameState((prev) => {
+          // 플레이어 업데이트
         let newPlayer = updatePlayer(prev.player, keysPressed.current, prev.platforms);
 
         // 아티팩트: 5초당 치유 (60fps 기준 300프레임 = 5초)
@@ -1712,6 +1713,7 @@ export const useGame = () => {
           rewardOptions,
           damageTexts: updatedDamageTexts,
         };
+      });
       });
 
       animationFrameId.current = requestAnimationFrame(gameLoop);

@@ -1,5 +1,6 @@
--- djwida: profiles, game_scores, 인증 트리거, RPC, RLS
--- Supabase 대시보드 SQL Editor 또는 MCP apply_migration으로 실행하세요.
+-- djwida: profiles, game_scores, 인증 트리거, RLS
+-- 적용: Supabase 대시보드 SQL Editor 또는 Supabase MCP (apply_migration) 로 실행.
+-- MCP: list_tables로 스키마 확인, execute_sql로 조회/검증 가능.
 
 -- profiles (닉네임, 아바타, 모바일 설정)
 CREATE TABLE IF NOT EXISTS public.profiles (

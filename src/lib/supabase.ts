@@ -64,7 +64,7 @@ export async function fetchLeaderboard(limit = 20): Promise<GameScoreRow[]> {
   }
 }
 
-/** 점수 제출 (패배/승리 시 호출) - 로그인 시 user_id 저장(닉네임 수정 시 리더보드 동기화용) */
+/** 점수 제출 (패배/승리 시 호출). 비동기·논블로킹 — 게임 프레임에 영향 없음. Supabase game_scores 테이블 사용. */
 export async function submitScoreToLeaderboard(params: {
   playerName: string;
   score: number;

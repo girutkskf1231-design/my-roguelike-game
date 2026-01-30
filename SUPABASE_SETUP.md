@@ -44,23 +44,6 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 이메일·비밀번호 로그인/회원가입은 위 설정만으로 동작합니다.
 
-### 이메일 발송량 늘리기
-
-- **기본**: Supabase 내장 SMTP는 **시간당 2통**으로 제한됩니다. 이 한도는 대시보드에서 올릴 수 없습니다.
-- **발송량을 늘리려면** [커스텀 SMTP](https://supabase.com/docs/guides/auth/auth-smtp)를 설정한 뒤, 아래처럼 **Rate Limit**을 조정하세요.
-
-1. **대시보드**: [Authentication → Rate Limits](https://supabase.com/dashboard/project/_/auth/rate-limits)에서 **Emails sent per hour** (`rate_limit_email_sent`) 값을 늘립니다 (예: 10, 30).
-2. **Management API** (커스텀 SMTP 사용 시):
-   - [Account Tokens](https://supabase.com/dashboard/account/tokens)에서 액세스 토큰 발급
-   - 프로젝트 ref 확인 후:
-   ```bash
-   curl -X PATCH "https://api.supabase.com/v1/projects/YOUR_PROJECT_REF/config/auth" \
-     -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{"rate_limit_email_sent": 30}'
-   ```
-3. **SMTP 연동**: Resend, SendGrid, AWS SES, Brevo 등 외부 SMTP를 **Project Settings → Auth → SMTP**에서 설정하면 위 한도 조정이 적용됩니다.
-
 ## 4. 데이터베이스 마이그레이션
 
 마이그레이션 파일은 `supabase/migrations/`에 있으며, **순서대로** 적용해야 합니다.
@@ -91,7 +74,28 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 - **nickname_available** RPC: 닉네임 중복 확인.
 - **avatars** 버킷: 프로필 사진 업로드 (본인 폴더만).
 
-## 5. 동작 확인
+## 5. 이메일 rate limit (email rate limit exceeded 시)
+
+기본 Supabase 이메일 발송 한도는 매우 낮아 회원가입/비밀번호 재설정 시 **"email rate limit exceeded"** 가 나올 수 있습니다.
+
+### 방법 A: 스크립트로 상향 (Management API)
+
+1. [Supabase 대시보드 → Account → Access Tokens](https://supabase.com/dashboard/account/tokens)에서 **Personal Access Token** 생성
+2. `.env`에 추가: `SUPABASE_ACCESS_TOKEN=발급한_토큰`
+3. 터미널에서 실행 (예: 시간당 30통):
+   ```bash
+   node scripts/update-auth-rate-limit.mjs 30
+   ```
+
+### 방법 B: 대시보드에서 수동 변경
+
+1. **Authentication → Rate Limits** 이동  
+   `https://supabase.com/dashboard/project/<프로젝트_REF>/auth/rate-limits`
+2. **Email sent** 값을 원하는 한도로 변경 (예: 30)
+
+---
+
+## 6. 동작 확인
 
 - 메인 메뉴에서 **회원가입** → 이메일·닉네임·비밀번호 입력 → 닉네임 **중복 확인** 후 가입
 - 가입 완료 시 **로그인하기** 클릭 → **로그인** 모달에서 이메일·비밀번호로 로그인
