@@ -44,6 +44,7 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     bgGradient.addColorStop(1, '#1a1a2e');
 
     function drawStaticLayer(state: GameState) {
+      if (!staticCtx) return;
       staticCtx.fillStyle = bgGradient;
       staticCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
       staticCtx.fillStyle = '#ffffff';
