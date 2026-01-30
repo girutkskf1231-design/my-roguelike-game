@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { supabase, checkNicknameAvailable, signUp } from '@/lib/supabase';
 import { isInappropriateNickname, hasNicknameForbiddenChars } from '@/lib/nicknameBlocklist';
 import { validatePassword, PASSWORD_HINT } from '@/lib/passwordRules';
+import { useToast } from '@/contexts/ToastContext';
 import { Button } from '@/components/ui/button';
-import { X, Mail, User, Lock, CheckCircle, XCircle, UserPlus } from 'lucide-react';
+import { X, Mail, User, Lock, CheckCircle, XCircle, UserPlus, LogIn } from 'lucide-react';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -14,6 +15,7 @@ interface SignUpScreenProps {
 }
 
 export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
+  const showToast = useToast();
   const [email, setEmail] = useState('');
   const [emailCheckMessage, setEmailCheckMessage] = useState<string | null>(null);
   const [nickname, setNickname] = useState('');
@@ -104,8 +106,10 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
     if (result.ok) {
       setSuccess(true);
     } else {
-      if (result.error === 'email_taken') setSubmitError('이미 가입된 이메일입니다.');
-      else if (result.error === 'nickname_taken') setSubmitError('이미 사용 중인 닉네임입니다.');
+      if (result.error === 'email_taken') {
+        setSubmitError('이미 가입된 이메일입니다.');
+        showToast('이미 가입된 이메일 입니다', 'error');
+      } else if (result.error === 'nickname_taken') setSubmitError('이미 사용 중인 닉네임입니다.');
       else setSubmitError(result.error || '가입에 실패했습니다. 다시 시도해 주세요.');
     }
   };
@@ -293,6 +297,18 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
               {submitting ? '가입 중...' : '가입하기'}
             </Button>
           </div>
+
+          <p className="text-center text-sm text-slate-400 pt-2">
+            이미 계정이 있으신가요?{' '}
+            <button
+              type="button"
+              onClick={() => { onSuccess?.(); onClose(); }}
+              className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              로그인
+            </button>
+          </p>
         </form>
       </div>
     </div>

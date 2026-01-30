@@ -19,6 +19,7 @@ import { MyInfoScreen } from './components/MyInfoScreen';
 import { submitScoreToLeaderboard, updateMobileSettings } from './lib/supabase';
 import type { MobileSettings } from './lib/supabase';
 import { useAuth } from './hooks/useAuth';
+import { useToast } from './contexts/ToastContext';
 import { MobileControls } from './components/MobileControls';
 import { Button } from './components/ui/button';
 import {
@@ -89,6 +90,7 @@ function App() {
   const [showMyInfo, setShowMyInfo] = useState<boolean>(false);
 
   const { user, profile, signOut } = useAuth();
+  const showToast = useToast();
 
   // 메뉴/선택 상태
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
@@ -332,7 +334,10 @@ function App() {
                       {profile?.nickname ?? user.email ?? '로그인됨'}
                     </span>
                     <Button
-                      onClick={() => signOut()}
+                      onClick={async () => {
+                        await signOut();
+                        showToast('로그아웃되었습니다.', 'success');
+                      }}
                       variant="outline"
                       className="flex-1 h-11 text-base font-bold border-2 border-slate-500/50 text-gray-300 hover:bg-slate-800"
                     >
