@@ -10,7 +10,6 @@ import { SkillSelectModal } from './components/SkillSelectModal';
 import UpgradePage from './components/UpgradePage';
 import EvolutionPage from './components/EvolutionPage';
 import FusionPage from './components/FusionPage';
-import { StatisticsContent } from './components/StatisticsScreen';
 import ArtifactScreen from './components/ArtifactScreen';
 import { LeaderboardScreen, getStoredPlayerName } from './components/LeaderboardScreen';
 import { SignUpScreen } from './components/SignUpScreen';
@@ -19,7 +18,6 @@ import { MyInfoScreen } from './components/MyInfoScreen';
 import { submitScoreToLeaderboard, updateMobileSettings } from './lib/supabase';
 import type { MobileSettings } from './lib/supabase';
 import { useAuth } from './hooks/useAuth';
-import { useToast } from './contexts/ToastContext';
 import { MobileControls } from './components/MobileControls';
 import { Button } from './components/ui/button';
 import {
@@ -32,7 +30,6 @@ import {
   Pause,
   Play,
   Package,
-  TrendingUp,
   Sword,
   Trophy,
   Clock,
@@ -45,7 +42,6 @@ const INITIAL_PANEL_STATE = {
   showUpgrade: false,
   showEvolution: false,
   showFusion: false,
-  showStatistics: false,
   showArtifacts: false,
   showStats: false,
   showSkillSelect: false,
@@ -80,7 +76,6 @@ function App() {
   const [showUpgrade, setShowUpgrade] = useState<boolean>(INITIAL_PANEL_STATE.showUpgrade);
   const [showEvolution, setShowEvolution] = useState<boolean>(INITIAL_PANEL_STATE.showEvolution);
   const [showFusion, setShowFusion] = useState<boolean>(INITIAL_PANEL_STATE.showFusion);
-  const [showStatistics, setShowStatistics] = useState<boolean>(INITIAL_PANEL_STATE.showStatistics);
   const [showArtifacts, setShowArtifacts] = useState<boolean>(INITIAL_PANEL_STATE.showArtifacts);
   const [showStats, setShowStats] = useState<boolean>(INITIAL_PANEL_STATE.showStats);
   const [showSkillSelect, setShowSkillSelect] = useState<boolean>(INITIAL_PANEL_STATE.showSkillSelect);
@@ -89,8 +84,7 @@ function App() {
   const [showLogin, setShowLogin] = useState<boolean>(false);
   const [showMyInfo, setShowMyInfo] = useState<boolean>(false);
 
-  const { user, profile, signOut } = useAuth();
-  const showToast = useToast();
+  const { user, profile } = useAuth();
 
   // 메뉴/선택 상태
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
@@ -226,7 +220,6 @@ function App() {
       setShowUpgrade(INITIAL_PANEL_STATE.showUpgrade);
       setShowEvolution(INITIAL_PANEL_STATE.showEvolution);
       setShowFusion(INITIAL_PANEL_STATE.showFusion);
-      setShowStatistics(INITIAL_PANEL_STATE.showStatistics);
       setShowArtifacts(INITIAL_PANEL_STATE.showArtifacts);
       setShowStats(INITIAL_PANEL_STATE.showStats);
       setShowLeaderboard(false);
@@ -312,37 +305,18 @@ function App() {
                   <Trophy className="w-5 h-5 mr-2" />
                   🏆 리더보드
                 </Button>
-                <Button
-                  onClick={() => setShowStatistics(prev => !prev)}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 h-12 text-base font-bold border-2 border-purple-400"
-                >
-                  <TrendingUp className="w-5 h-5 mr-2" />
-                  📊 통계 보기
-                </Button>
-              </div>
-              <div className="flex gap-3">
                 {user ? (
                   <>
                     <Button
                       onClick={() => setShowMyInfo(true)}
                       variant="outline"
-                      className="flex-1 h-11 text-base font-bold border-2 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900/30"
+                      className="flex-1 h-12 text-base font-bold border-2 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900/30"
                     >
                       내 정보
                     </Button>
                     <span className="flex-1 flex items-center justify-center text-cyan-300 text-sm font-medium truncate px-2">
                       {profile?.nickname ?? user.email ?? '로그인됨'}
                     </span>
-                    <Button
-                      onClick={async () => {
-                        await signOut();
-                        showToast('로그아웃되었습니다.', 'success');
-                      }}
-                      variant="outline"
-                      className="flex-1 h-11 text-base font-bold border-2 border-slate-500/50 text-gray-300 hover:bg-slate-800"
-                    >
-                      로그아웃
-                    </Button>
                   </>
                 ) : (
                   <>
@@ -365,11 +339,6 @@ function App() {
               </div>
             </div>
 
-            {showStatistics && (
-              <div className="mt-4">
-                <StatisticsContent />
-              </div>
-            )}
             {showLeaderboard && (
               <LeaderboardScreen onClose={() => setShowLeaderboard(false)} />
             )}
@@ -386,7 +355,13 @@ function App() {
               <LoginScreen onClose={() => setShowLogin(false)} />
             )}
             {showMyInfo && (
-              <MyInfoScreen onClose={() => setShowMyInfo(false)} />
+              <MyInfoScreen
+                onClose={() => setShowMyInfo(false)}
+                onAfterLogout={() => {
+                  setShowMyInfo(false);
+                  setShowLogin(true);
+                }}
+              />
             )}
           </div>
         </div>

@@ -279,3 +279,182 @@ export async function uploadAvatar(userId: string, file: File): Promise<UpdatePr
     return { ok: false, error: '업로드에 실패했습니다.' };
   }
 }
+
+// --- 게임 인벤토리 시스템 ---
+
+const INVENTORY_TABLE = 'player_inventory';
+
+export interface PlayerInventoryData {
+  id?: string;
+  user_id: string;
+  current_level: number;
+  current_experience: number;
+  current_wave: number;
+  current_score: number;
+  current_health: number;
+  max_health: number;
+  stats: {
+    strength: number;
+    vitality: number;
+    agility: number;
+    defense: number;
+    criticalChance: number;
+  };
+  stat_points: number;
+  class_type: string;
+  equipped_weapon_id: string;
+  equipped_weapon_upgrade_level: number;
+  weapons: Array<{
+    id: string;
+    upgradeLevel?: number;
+    isEvolved?: boolean;
+  }>;
+  equipped_skills: Array<string | null>;
+  available_skills: string[];
+  artifacts: string[];
+  equipped_artifacts: Array<string | null>;
+  difficulty: string;
+  last_saved_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** 플레이어 인벤토리 조회 */
+export async function getPlayerInventory(userId: string): Promise<PlayerInventoryData | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from(INVENTORY_TABLE)
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    if (error) {
+      // 인벤토리가 없으면 null 반환 (첫 게임 시작 시)
+      if (error.code === 'PGRST116') return null;
+      console.error('인벤토리 조회 오류:', error);
+      return null;
+    }
+    
+    return data as PlayerInventoryData;
+  } catch (err) {
+    console.error('인벤토리 조회 예외:', err);
+    return null;
+  }
+}
+
+/** 플레이어 인벤토리 저장 (생성 또는 업데이트) */
+export async function savePlayerInventory(inventory: PlayerInventoryData): Promise<UpdateProfileResult> {
+  if (!supabase) return { ok: false, error: '네트워크 오류' };
+  
+  try {
+    // 기존 인벤토리 확인
+    const existing = await getPlayerInventory(inventory.user_id);
+    
+    const payload = {
+      user_id: inventory.user_id,
+      current_level: inventory.current_level,
+      current_experience: inventory.current_experience,
+      current_wave: inventory.current_wave,
+      current_score: inventory.current_score,
+      current_health: inventory.current_health,
+      max_health: inventory.max_health,
+      stats: inventory.stats,
+      stat_points: inventory.stat_points,
+      class_type: inventory.class_type,
+      equipped_weapon_id: inventory.equipped_weapon_id,
+      equipped_weapon_upgrade_level: inventory.equipped_weapon_upgrade_level,
+      weapons: inventory.weapons,
+      equipped_skills: inventory.equipped_skills,
+      available_skills: inventory.available_skills,
+      artifacts: inventory.artifacts,
+      equipped_artifacts: inventory.equipped_artifacts,
+      difficulty: inventory.difficulty,
+    };
+    
+    if (existing) {
+      // 업데이트
+      const { error } = await supabase
+        .from(INVENTORY_TABLE)
+        .update(payload)
+        .eq('user_id', inventory.user_id);
+      
+      if (error) {
+        console.error('인벤토리 업데이트 오류:', error);
+        return { ok: false, error: normalizeErrorMessage(error.message) };
+      }
+    } else {
+      // 생성
+      const { error } = await supabase
+        .from(INVENTORY_TABLE)
+        .insert(payload);
+      
+      if (error) {
+        console.error('인벤토리 생성 오류:', error);
+        return { ok: false, error: normalizeErrorMessage(error.message) };
+      }
+    }
+    
+    return { ok: true };
+  } catch (err) {
+    console.error('인벤토리 저장 예외:', err);
+    return { ok: false, error: '인벤토리 저장에 실패했습니다.' };
+  }
+}
+
+/** 플레이어 인벤토리 삭제 (게임 초기화) */
+export async function deletePlayerInventory(userId: string): Promise<UpdateProfileResult> {
+  if (!supabase) return { ok: false, error: '네트워크 오류' };
+  
+  try {
+    const { error } = await supabase
+      .from(INVENTORY_TABLE)
+      .delete()
+      .eq('user_id', userId);
+    
+    if (error) {
+      console.error('인벤토리 삭제 오류:', error);
+      return { ok: false, error: normalizeErrorMessage(error.message) };
+    }
+    
+    return { ok: true };
+  } catch (err) {
+    console.error('인벤토리 삭제 예외:', err);
+    return { ok: false, error: '인벤토리 삭제에 실패했습니다.' };
+  }
+}
+
+/** 인벤토리 통계 조회 */
+export async function getInventoryStats(userId: string): Promise<{
+  totalWeapons: number;
+  totalSkills: number;
+  totalArtifacts: number;
+  equippedWeaponName: string;
+  playerLevel: number;
+  currentWave: number;
+} | null> {
+  if (!supabase) return null;
+  
+  try {
+    const { data, error } = await supabase
+      .rpc('get_inventory_stats', { p_user_id: userId })
+      .single();
+    
+    if (error) {
+      console.error('인벤토리 통계 조회 오류:', error);
+      return null;
+    }
+    
+    return {
+      totalWeapons: data.total_weapons,
+      totalSkills: data.total_skills,
+      totalArtifacts: data.total_artifacts,
+      equippedWeaponName: data.equipped_weapon_name,
+      playerLevel: data.player_level,
+      currentWave: data.current_wave,
+    };
+  } catch (err) {
+    console.error('인벤토리 통계 조회 예외:', err);
+    return null;
+  }
+}

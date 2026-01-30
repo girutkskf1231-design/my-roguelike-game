@@ -108,11 +108,12 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({
               무기 저장소
             </h1>
             <p className="text-gray-300 text-sm mt-1">
-              💼 {allWeapons.length}개 보유 (무제한) | ⚔️ 장착: {player.weapon.name}
+              💼 보유 무기: {allWeapons.length}개 | ⚔️ 장착: {player.weapon.name}
               {player.weapon.upgradeLevel ? ` +${player.weapon.upgradeLevel}` : ''}
             </p>
-            <p className="text-blue-400 text-xs mt-0.5">
-              ♾️ 무기를 무제한으로 저장할 수 있습니다
+            <p className="text-blue-400 text-xs mt-0.5 flex items-center gap-1">
+              <span className="text-lg">♾️</span>
+              <span>무제한 저장 가능</span>
             </p>
           </div>
           <Button
@@ -238,14 +239,19 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({
             <div className="mb-3 p-3 bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-lg border-2 border-blue-600">
               <div className="flex items-center gap-2">
                 <div className="text-2xl">♾️</div>
-                <div>
-                  <div className="text-blue-400 font-bold text-sm">
-                    무제한 저장소 - {selectedTab === 'all' ? '전체' : 
-                      selectedTab === 'melee' ? '⚔️ 근접 무기' :
-                      selectedTab === 'ranged' ? '🏹 원거리 무기' : '🪄 마법 무기'}
+                <div className="flex-1">
+                  <div className="text-blue-400 font-bold text-sm flex items-center justify-between">
+                    <span>
+                      {selectedTab === 'all' ? '전체 무기' : 
+                        selectedTab === 'melee' ? '⚔️ 근접 무기' :
+                        selectedTab === 'ranged' ? '🏹 원거리 무기' : '🪄 마법 무기'}
+                    </span>
+                    <span className="text-green-400 text-xs">
+                      {filteredWeapons.length}개 보유
+                    </span>
                   </div>
                   <div className="text-xs text-gray-300 mt-0.5">
-                    💡 {filteredWeapons.length}개 표시 중 | 무기를 선택하여 장착하거나 작업장에서 관리하세요
+                    💡 무기를 선택하여 장착하거나 작업장에서 관리하세요
                   </div>
                 </div>
               </div>

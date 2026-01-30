@@ -10,7 +10,6 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface SignUpScreenProps {
   onClose: () => void;
-  /** 가입 성공 후 로그인 화면으로 넘길 때 호출 (예: 로그인하기 클릭) */
   onSuccess?: () => void;
 }
 
@@ -117,9 +116,9 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
   if (!supabase) {
     return (
       <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
-        <div className="bg-slate-900 rounded-2xl p-8 border border-slate-600 max-w-md w-full text-center shadow-xl">
+        <div className="bg-gradient-to-br from-slate-900 via-purple-900/30 to-slate-900 rounded-2xl p-8 border-2 border-purple-500/50 max-w-md w-full text-center shadow-2xl shadow-purple-950/50">
           <p className="text-slate-400 mb-6">Supabase가 설정되지 않아 회원가입을 사용할 수 없습니다.</p>
-          <Button onClick={onClose} className="rounded-xl">닫기</Button>
+          <Button onClick={onClose} className="rounded-xl bg-purple-600 hover:bg-purple-500">닫기</Button>
         </div>
       </div>
     );
@@ -128,24 +127,24 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
   if (success) {
     return (
       <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
-        <div className="bg-slate-900 rounded-2xl border border-slate-600/80 shadow-2xl max-w-md w-full overflow-hidden text-center">
+        <div className="bg-gradient-to-br from-slate-900 via-purple-900/40 to-slate-900 rounded-2xl border-2 border-purple-500/50 shadow-2xl shadow-purple-950/50 max-w-md w-full overflow-hidden text-center">
           <div className="p-8">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-5">
-              <CheckCircle className="w-9 h-9 text-emerald-400" />
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500/30 to-cyan-500/20 flex items-center justify-center mx-auto mb-6 border-2 border-emerald-500/40 shadow-lg">
+              <CheckCircle className="w-10 h-10 text-emerald-400" />
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">가입 완료</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">가입 완료</h2>
             <p className="text-slate-400 text-sm mb-6">이메일 인증 링크가 발송되었을 수 있습니다. 로그인 후 이용해 주세요.</p>
             <div className="flex gap-3">
               <Button
                 variant="outline"
                 onClick={onClose}
-                className="flex-1 h-12 rounded-xl border-slate-600 text-slate-300 hover:bg-slate-700/80 hover:text-white"
+                className="flex-1 h-12 rounded-xl border-2 border-slate-500/50 text-slate-300 hover:bg-slate-700/80 hover:text-white"
               >
                 닫기
               </Button>
               <Button
                 onClick={() => { onSuccess?.(); onClose(); }}
-                className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500"
+                className="flex-1 h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-semibold shadow-lg shadow-emerald-950/50"
               >
                 로그인하기
               </Button>
@@ -158,22 +157,22 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-auto">
-      <div className="bg-slate-900 rounded-2xl border border-slate-600/80 shadow-2xl max-w-md w-full my-8 overflow-hidden">
+      <div className="bg-gradient-to-br from-slate-900 via-purple-900/40 to-slate-900 rounded-2xl border-2 border-purple-500/50 shadow-2xl shadow-purple-950/50 max-w-md w-full my-8 overflow-hidden">
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-700/80 bg-slate-800/50">
+        <div className="flex items-center justify-between px-6 py-5 bg-gradient-to-r from-purple-900/70 to-cyan-900/40 border-b border-purple-500/30">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-cyan-600/20 flex items-center justify-center">
-              <UserPlus className="w-5 h-5 text-cyan-400" />
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/30 to-purple-500/20 flex items-center justify-center border border-cyan-500/30 shadow-lg">
+              <UserPlus className="w-6 h-6 text-cyan-400" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">회원가입</h2>
-              <p className="text-xs text-slate-400">새 계정 만들기</p>
+              <h2 className="text-xl font-bold text-white tracking-tight">회원가입</h2>
+              <p className="text-xs text-slate-400 mt-0.5">새 계정 만들기</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/80 transition-colors"
+            className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700/80 transition-colors"
             aria-label="닫기"
           >
             <X className="w-5 h-5" />
@@ -182,8 +181,8 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
           {/* 이메일 */}
-          <div>
-            <label className="text-sm font-medium text-slate-300 block mb-2">이메일</label>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-300">이메일</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -192,23 +191,21 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setEmailCheckMessage(null); }}
                   placeholder="example@email.com"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-800/80 border border-slate-600 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-800/90 border border-slate-600 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
                   autoComplete="email"
                 />
               </div>
-              <Button type="button" variant="secondary" onClick={handleEmailCheck} className="shrink-0 rounded-xl h-[42px] px-4 bg-slate-700 hover:bg-slate-600 text-slate-200 border-0">
+              <Button type="button" variant="secondary" onClick={handleEmailCheck} className="shrink-0 rounded-xl h-[46px] px-4 bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600">
                 중복 확인
               </Button>
             </div>
-            {emailCheckMessage && (
-              <p className="text-xs text-cyan-400 mt-1.5">{emailCheckMessage}</p>
-            )}
-            {email && !emailValid && <p className="text-xs text-red-400 mt-1.5">올바른 이메일 형식이 아닙니다.</p>}
+            {emailCheckMessage && <p className="text-xs text-cyan-400">{emailCheckMessage}</p>}
+            {email && !emailValid && <p className="text-xs text-red-400">올바른 이메일 형식이 아닙니다.</p>}
           </div>
 
           {/* 닉네임 */}
-          <div>
-            <label className="text-sm font-medium text-slate-300 block mb-2">닉네임 (2~20자)</label>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-300">닉네임 (2~20자)</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -218,31 +215,28 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
                   onChange={(e) => { setNickname(e.target.value); setNicknameCheckMessage(null); }}
                   placeholder="닉네임"
                   maxLength={20}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-800/80 border border-slate-600 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-800/90 border border-slate-600 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
                   autoComplete="username"
                 />
               </div>
-              <Button type="button" variant="secondary" onClick={handleNicknameCheck} disabled={nicknameCheckMessage === 'checking'} className="shrink-0 rounded-xl h-[42px] px-4 bg-slate-700 hover:bg-slate-600 text-slate-200 border-0">
+              <Button type="button" variant="secondary" onClick={handleNicknameCheck} disabled={nicknameCheckMessage === 'checking'} className="shrink-0 rounded-xl h-[46px] px-4 bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-600">
                 {nicknameCheckMessage === 'checking' ? '확인 중...' : '중복 확인'}
               </Button>
             </div>
             {nicknameCheckMessage === 'available' && (
-              <p className="text-xs text-emerald-400 mt-1.5 flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> 사용 가능한 닉네임입니다.</p>
+              <p className="text-xs text-emerald-400 flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> 사용 가능한 닉네임입니다.</p>
             )}
             {nicknameCheckMessage === 'taken' && (
-              <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> 이미 사용 중이거나 사용할 수 없는 닉네임입니다.</p>
+              <p className="text-xs text-red-400 flex items-center gap-1"><XCircle className="w-3.5 h-3.5" /> 이미 사용 중이거나 사용할 수 없는 닉네임입니다.</p>
             )}
-            {nicknameForbiddenChars && (
-              <p className="text-xs text-red-400 mt-1.5">닉네임에는 이모티콘과 특수문자를 사용할 수 없습니다.</p>
-            )}
-            {nicknameInappropriate && !nicknameForbiddenChars && (
-              <p className="text-xs text-red-400 mt-1.5">부적절한 닉네임은 사용할 수 없습니다.</p>
+            {(nicknameForbiddenChars || nicknameInappropriate) && !nicknameCheckMessage && (
+              <p className="text-xs text-red-400">이모티콘·특수문자 불가, 2자 이상</p>
             )}
           </div>
 
           {/* 비밀번호 */}
-          <div>
-            <label className="text-sm font-medium text-slate-300 block mb-2">비밀번호 (8자 이상, 영어·특수문자 포함)</label>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-300">비밀번호 (8자 이상, 영어·특수문자 포함)</label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input
@@ -251,7 +245,7 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={PASSWORD_HINT}
                 minLength={8}
-                className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-800/80 border border-slate-600 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
+                className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-800/90 border border-slate-600 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
                 autoComplete="new-password"
               />
             </div>
@@ -265,8 +259,8 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
           </div>
 
           {/* 비밀번호 재확인 */}
-          <div>
-            <label className="text-sm font-medium text-slate-300 block mb-2">비밀번호 재확인</label>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-300">비밀번호 재확인</label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input
@@ -274,36 +268,34 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
                 value={passwordConfirm}
                 onChange={(e) => setPasswordConfirm(e.target.value)}
                 placeholder="비밀번호 다시 입력"
-                className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-800/80 border border-slate-600 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
+                className="w-full pl-11 pr-4 py-3 rounded-xl bg-slate-800/90 border border-slate-600 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
                 autoComplete="new-password"
               />
             </div>
-            {passwordConfirm && !passwordMatch && (
-              <p className="text-xs text-red-400 mt-1.5">비밀번호가 일치하지 않습니다.</p>
-            )}
+            {passwordConfirm && !passwordMatch && <p className="text-xs text-red-400">비밀번호가 일치하지 않습니다.</p>}
           </div>
 
           {submitError && (
-            <div className="rounded-xl bg-red-950/40 border border-red-500/30 px-4 py-3">
+            <div className="rounded-xl bg-red-950/50 border border-red-500/40 px-4 py-3">
               <p className="text-sm text-red-300">{submitError}</p>
             </div>
           )}
 
-          <div className="flex gap-3 pt-1">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1 h-12 rounded-xl border-slate-600 text-slate-300 hover:bg-slate-700/80 hover:text-white">
+          <div className="flex gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1 h-12 rounded-xl border-2 border-slate-500/50 text-slate-300 hover:bg-slate-700/80 hover:text-white">
               취소
             </Button>
-            <Button type="submit" disabled={submitting} className="flex-1 h-12 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold">
+            <Button type="submit" disabled={submitting} className="flex-1 h-12 rounded-xl bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-semibold shadow-lg shadow-purple-950/50">
               {submitting ? '가입 중...' : '가입하기'}
             </Button>
           </div>
 
-          <p className="text-center text-sm text-slate-400 pt-2">
+          <p className="text-center text-sm text-slate-400 pt-3 pb-1">
             이미 계정이 있으신가요?{' '}
             <button
               type="button"
               onClick={() => { onSuccess?.(); onClose(); }}
-              className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 font-medium underline underline-offset-2"
+              className="inline-flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300 font-semibold underline underline-offset-2 transition-colors"
             >
               <LogIn className="w-3.5 h-3.5" />
               로그인
