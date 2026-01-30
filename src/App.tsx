@@ -943,21 +943,21 @@ function App() {
         </div>
       )}
 
-      {/* 일시 정지 화면 */}
+      {/* 일시 정지 화면 - z-50으로 HUD 위에 표시, 내부 요소 세로 배치로 겹침 방지 */}
       {gameState.isPaused && gameState.gameStatus === 'playing' && (
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center pointer-events-auto">
-          <div className="bg-slate-900/95 rounded-lg p-8 border-4 border-blue-600 text-center shadow-2xl">
-            <div className="text-6xl mb-4">⏸️</div>
-            <div className="text-4xl text-blue-400 font-bold mb-4">
+        <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center pointer-events-auto">
+          <div className="bg-slate-900/95 rounded-lg p-8 border-4 border-blue-600 shadow-2xl min-w-[280px] max-w-[90vw] flex flex-col items-center gap-5 text-center">
+            <div className="text-6xl shrink-0" aria-hidden>⏸️</div>
+            <h2 className="text-4xl text-blue-400 font-bold shrink-0">
               일시 정지
+            </h2>
+            <div className="flex flex-col gap-2 text-gray-300 shrink-0">
+              <p className="text-base">게임이 일시 정지되었습니다</p>
+              <p className="text-sm text-gray-400 whitespace-normal">
+                ESC 키를 눌러 계속하기 · I 키로 인벤토리 열기
+              </p>
             </div>
-            <div className="text-gray-300 mb-6 space-y-2">
-              <div>게임이 일시 정지되었습니다</div>
-              <div className="text-sm text-gray-400">
-                ESC 키를 눌러 계속하기 | I 키로 인벤토리 열기
-              </div>
-            </div>
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3 w-full shrink-0">
               <Button
                 onClick={() => {
                   togglePause();
@@ -966,16 +966,16 @@ function App() {
                 size="lg"
                 className="w-full bg-cyan-600 hover:bg-cyan-700"
               >
-                <Package className="w-5 h-5 mr-2" />
-                인벤토리 열기 (I)
+                <Package className="w-5 h-5 mr-2 shrink-0" />
+                <span>인벤토리 열기 (I)</span>
               </Button>
               <Button
                 onClick={togglePause}
                 size="lg"
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
-                <Play className="w-5 h-5 mr-2" />
-                계속하기
+                <Play className="w-5 h-5 mr-2 shrink-0" />
+                <span>계속하기</span>
               </Button>
               <Button
                 onClick={restartGame}
@@ -983,8 +983,8 @@ function App() {
                 variant="outline"
                 className="w-full"
               >
-                <RotateCcw className="w-5 h-5 mr-2" />
-                재시작
+                <RotateCcw className="w-5 h-5 mr-2 shrink-0" />
+                <span>재시작</span>
               </Button>
             </div>
           </div>
