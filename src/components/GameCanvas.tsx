@@ -5,7 +5,7 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../utils/gameLogic';
 interface GameCanvasProps {
   gameState: GameState;
   /** 제공 시 캔버스는 RAF로 매 프레임 그리기(플레임 상승). 미제공 시 gameState 변경 시에만 그리기. */
-  gameStateRef?: React.MutableRefObject<GameState | null>;
+  gameStateRef?: React.RefObject<GameState>;
 }
 
 const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
