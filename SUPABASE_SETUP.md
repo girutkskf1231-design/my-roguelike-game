@@ -29,17 +29,35 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 이메일·비밀번호 로그인/회원가입은 위 설정만으로 동작합니다.
 
-## 4. 데이터베이스 (이미 마이그레이션된 경우)
+## 4. 데이터베이스 마이그레이션
 
-다음은 Supabase MCP 또는 SQL Editor로 적용된 마이그레이션입니다. 새 프로젝트라면 Supabase 대시보드 **SQL Editor**에서 순서대로 실행하세요.
+마이그레이션 파일은 `supabase/migrations/`에 있으며, **순서대로** 적용해야 합니다.
 
-- **profiles** 테이블 (닉네임, 아바타 등)
-- **game_scores** 테이블 (리더보드)
-- **handle_new_user** 트리거 (가입 시 profiles 자동 생성)
-- **nickname_available** RPC (닉네임 중복 확인)
-- **profiles.mobile_settings** 컬럼 (모바일 설정)
+| 파일 | 내용 |
+|------|------|
+| `20260130100000_profiles_game_scores_auth.sql` | profiles, game_scores, handle_new_user, nickname_available, RLS, 닉네임 동기화 트리거 |
+| `20260130100001_avatars_storage.sql` | avatars 스토리지 버킷(90KB 제한) 및 정책 |
 
-RLS 정책으로 `profiles`는 본인만, `game_scores`는 인증 사용자만 insert 가능하도록 설정되어 있어야 합니다.
+### 방법 A: Supabase 대시보드 SQL Editor
+
+1. **SQL Editor**에서 각 파일 내용을 열어 **순서대로** 실행
+2. 에러 없이 완료되면 다음 파일 실행
+
+### 방법 B: Supabase MCP (Cursor)
+
+1. **djwida**에서 Supabase MCP가 연결된 프로젝트 사용 (`.cursor/mcp.json`에 `supabase` 서버 설정됨)
+2. MCP **apply_migration**으로 각 마이그레이션 적용:
+   - `name`: `profiles_game_scores_auth` / `avatars_storage` (snake_case)
+   - `query`: 해당 SQL 파일 전체 내용
+3. **list_migrations**로 적용 여부 확인
+
+### 적용 결과
+
+- **profiles**: 닉네임, 아바타, 모바일 설정. RLS로 본인만 조회/수정.
+- **game_scores**: 리더보드. 공개 조회, 인증 사용자만 insert.
+- **handle_new_user**: 가입 시 profiles 자동 생성 (닉네임 = metadata).
+- **nickname_available** RPC: 닉네임 중복 확인.
+- **avatars** 버킷: 프로필 사진 업로드 (본인 폴더만).
 
 ## 5. 동작 확인
 
