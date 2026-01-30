@@ -17,7 +17,7 @@ interface MyInfoScreenProps {
 }
 
 export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
-  const { user, profile, refreshProfile, signOut } = useAuth();
+  const { user, profile, loading, refreshProfile, signOut } = useAuth();
   const showToast = useToast();
   const [nickname, setNickname] = useState(profile?.nickname ?? '');
   useEffect(() => {
@@ -78,7 +78,27 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
     }
   };
 
-  if (!supabase || !user) {
+  if (!supabase) {
+    return (
+      <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-slate-900/95 rounded-2xl p-8 border-2 border-slate-600 max-w-md w-full text-center">
+          <p className="text-gray-400 mb-4">로그인 후 내 정보를 이용할 수 있습니다.</p>
+          <Button onClick={onClose} className="rounded-xl">닫기</Button>
+        </div>
+      </div>
+    );
+  }
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-slate-900/95 rounded-2xl p-8 border-2 border-slate-600 max-w-md w-full text-center">
+          <p className="text-gray-400 mb-4">로그인 정보를 확인하는 중...</p>
+          <Button onClick={onClose} className="rounded-xl" disabled>닫기</Button>
+        </div>
+      </div>
+    );
+  }
+  if (!user) {
     return (
       <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
         <div className="bg-slate-900/95 rounded-2xl p-8 border-2 border-slate-600 max-w-md w-full text-center">

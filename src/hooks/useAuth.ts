@@ -21,27 +21,16 @@ export function useAuth() {
       setLoading(false);
       return;
     }
-    const init = async () => {
-      const { data } = await client.auth.getSession();
-      const s = data?.session ?? null;
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user?.id) {
-        let p = await loadProfile(s.user.id);
-        if (!p) {
-          const fallback =
-            (s.user.user_metadata?.nickname as string | undefined)?.trim() ||
-            (s.user.email ?? '').split('@')[0]?.trim() ||
-            '게스트';
-          await ensureProfile(s.user.id, fallback);
-          p = await loadProfile(s.user.id);
-        }
-      }
-      setLoading(false);
-    };
-    init();
 
-    const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, s) => {
+    let loadingResolved = false;
+    const resolveLoading = () => {
+      if (!loadingResolved) {
+        loadingResolved = true;
+        setLoading(false);
+      }
+    };
+
+    const handleSession = async (s: Session | null) => {
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user?.id) {
@@ -57,8 +46,21 @@ export function useAuth() {
       } else {
         setProfile(null);
       }
+      resolveLoading();
+    };
+
+    // 자동 로그인: 초기 세션은 onAuthStateChange(INITIAL_SESSION)에서만 적용.
+    // getSession()은 스토리지 복원 전에 호출되면 null을 반환해 "내 정보" 등에서 잘못된 비로그인 상태가 될 수 있음.
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, s) => {
+      await handleSession(s ?? null);
     });
-    return () => subscription.unsubscribe();
+
+    // 리스너가 오래 걸리거나 오류 시에도 loading 해제 (최대 3초)
+    const fallback = setTimeout(resolveLoading, 3000);
+    return () => {
+      clearTimeout(fallback);
+      subscription.unsubscribe();
+    };
   }, [loadProfile]);
 
   const signIn = useCallback(authSignIn, []);
