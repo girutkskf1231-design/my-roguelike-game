@@ -17,12 +17,21 @@ interface MyInfoScreenProps {
 }
 
 export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
-  const { user, profile, loading, refreshProfile, signOut } = useAuth();
+  const { user, profile, loading, refreshProfile, signOut, ensureProfileForCurrentUser } = useAuth();
   const showToast = useToast();
   const [nickname, setNickname] = useState(profile?.nickname ?? '');
+  const ensuredOnce = useRef(false);
+
   useEffect(() => {
     setNickname(profile?.nickname ?? '');
   }, [profile?.nickname]);
+
+  // 로그인됐는데 프로필이 없을 때(자동 로그인/로그인 직후 ensure 실패 등) 한 번 프로필 생성 시도
+  useEffect(() => {
+    if (!user?.id || profile != null || loading || ensuredOnce.current) return;
+    ensuredOnce.current = true;
+    ensureProfileForCurrentUser();
+  }, [user?.id, profile, loading, ensureProfileForCurrentUser]);
   const [nicknameError, setNicknameError] = useState<string | null>(null);
   const [nicknameSaving, setNicknameSaving] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);

@@ -75,5 +75,18 @@ export function useAuth() {
     if (user?.id) await loadProfile(user.id);
   }, [user?.id, loadProfile]);
 
-  return { user, session, profile, loading, signIn, signOut, refreshProfile };
+  /** 로그인됐는데 프로필이 없을 때(ensure 실패 등) 한 번 더 프로필 행 생성 후 로드. 내 정보 화면에서 호출 */
+  const ensureProfileForCurrentUser = useCallback(async (): Promise<boolean> => {
+    if (!user?.id) return false;
+    const fallback =
+      (user.user_metadata?.nickname as string | undefined)?.trim() ||
+      (user.email ?? '').split('@')[0]?.trim() ||
+      '게스트';
+    const ok = await ensureProfile(user.id, fallback);
+    if (ok) await loadProfile(user.id);
+    else await loadProfile(user.id); // 이미 행이 있으면 ensure 실패해도 재조회
+    return ok;
+  }, [user?.id, user?.user_metadata?.nickname, user?.email, loadProfile]);
+
+  return { user, session, profile, loading, signIn, signOut, refreshProfile, ensureProfileForCurrentUser };
 }

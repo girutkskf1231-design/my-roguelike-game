@@ -352,7 +352,13 @@ function App() {
               />
             )}
             {showLogin && (
-              <LoginScreen onClose={() => setShowLogin(false)} />
+              <LoginScreen
+                onClose={() => setShowLogin(false)}
+                onSuccess={() => {
+                  setShowLogin(false);
+                  setShowMyInfo(true);
+                }}
+              />
             )}
             {showMyInfo && (
               <MyInfoScreen
