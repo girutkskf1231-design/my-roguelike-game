@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
-import { supabase, signIn as authSignIn, signOut as authSignOut, getProfile, type AuthProfile } from '@/lib/supabase';
+import { supabase, signIn as authSignIn, signOut as authSignOut, getProfile, ensureProfile, type AuthProfile } from '@/lib/supabase';
 
 /** 로그인 상태: 세션·프로필·자동 로그인(세션 유지) */
 export function useAuth() {
@@ -9,9 +9,10 @@ export function useAuth() {
   const [profile, setProfile] = useState<AuthProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = useCallback(async (userId: string) => {
+  const loadProfile = useCallback(async (userId: string): Promise<AuthProfile | null> => {
     const p = await getProfile(userId);
     setProfile(p);
+    return p;
   }, []);
 
   useEffect(() => {
@@ -25,7 +26,17 @@ export function useAuth() {
       const s = data?.session ?? null;
       setSession(s);
       setUser(s?.user ?? null);
-      if (s?.user?.id) await loadProfile(s.user.id);
+      if (s?.user?.id) {
+        let p = await loadProfile(s.user.id);
+        if (!p) {
+          const fallback =
+            (s.user.user_metadata?.nickname as string | undefined)?.trim() ||
+            (s.user.email ?? '').split('@')[0]?.trim() ||
+            '게스트';
+          await ensureProfile(s.user.id, fallback);
+          p = await loadProfile(s.user.id);
+        }
+      }
       setLoading(false);
     };
     init();
@@ -33,8 +44,19 @@ export function useAuth() {
     const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, s) => {
       setSession(s);
       setUser(s?.user ?? null);
-      if (s?.user?.id) await loadProfile(s.user.id);
-      else setProfile(null);
+      if (s?.user?.id) {
+        let p = await loadProfile(s.user.id);
+        if (!p) {
+          const fallback =
+            (s.user.user_metadata?.nickname as string | undefined)?.trim() ||
+            (s.user.email ?? '').split('@')[0]?.trim() ||
+            '게스트';
+          await ensureProfile(s.user.id, fallback);
+          await loadProfile(s.user.id);
+        }
+      } else {
+        setProfile(null);
+      }
     });
     return () => subscription.unsubscribe();
   }, [loadProfile]);

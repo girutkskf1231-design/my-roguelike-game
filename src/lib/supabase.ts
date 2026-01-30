@@ -222,6 +222,19 @@ export async function getProfile(userId: string): Promise<AuthProfile | null> {
   }
 }
 
+/** 자동 로그인 시 프로필 행이 없을 때 생성 (트리거 미실행·마이그레이션 이전 가입자 대응). 기존 행이 있으면 덮어쓰지 않음. */
+export async function ensureProfile(userId: string, fallbackNickname: string): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const nickname = String(fallbackNickname).trim().slice(0, 50) || '게스트';
+    const { error } = await supabase.from(PROFILES_TABLE).insert({ id: userId, nickname });
+    if (error && error.code !== '23505') return false; // 23505 = unique violation, 이미 행 존재
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** 모바일 컨트롤 설정 저장 (Supabase profiles.mobile_settings) */
 export async function updateMobileSettings(userId: string, settings: MobileSettings): Promise<UpdateProfileResult> {
   if (!supabase) return { ok: false, error: '네트워크 오류' };

@@ -315,7 +315,7 @@ function App() {
                       내 정보
                     </Button>
                     <span className="flex-1 flex items-center justify-center text-cyan-300 text-sm font-medium truncate px-2">
-                      {profile?.nickname ?? user.email ?? '로그인됨'}
+                      {(profile?.nickname?.trim() || user.email) ?? '로그인됨'}
                     </span>
                   </>
                 ) : (
@@ -850,6 +850,56 @@ function App() {
                 onLayoutChange={handleMobileSettingsChange}
               />
             )}
+
+            {/* 일시정지 메뉴 - 게임 영역 내 오른쪽 패널로 배치해 상단 HUD와 겹치지 않음 */}
+            {gameState.isPaused && (
+              <div className="absolute inset-0 z-[100] pointer-events-auto flex justify-end">
+                <button
+                  type="button"
+                  aria-label="배경 클릭 시 계속하기"
+                  className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                  onClick={togglePause}
+                />
+                <div className="relative z-10 w-[260px] sm:w-[300px] h-full bg-slate-900/98 border-l-4 border-blue-600 shadow-2xl flex flex-col p-5 gap-4 overflow-y-auto">
+                  <div className="text-4xl shrink-0">⏸️</div>
+                  <h2 className="text-xl sm:text-2xl text-blue-400 font-bold shrink-0 leading-tight">
+                    일시 정지
+                  </h2>
+                  <p className="text-gray-300 text-sm shrink-0">게임이 일시 정지되었습니다</p>
+                  <p className="text-xs text-gray-400 shrink-0">ESC: 계속 | I: 인벤토리</p>
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <Button
+                      onClick={() => {
+                        togglePause();
+                        setShowInventory(true);
+                      }}
+                      size="lg"
+                      className="w-full bg-cyan-600 hover:bg-cyan-700 justify-start"
+                    >
+                      <Package className="w-5 h-5 mr-2 shrink-0" />
+                      <span>인벤토리 (I)</span>
+                    </Button>
+                    <Button
+                      onClick={togglePause}
+                      size="lg"
+                      className="w-full bg-blue-600 hover:bg-blue-700 justify-start"
+                    >
+                      <Play className="w-5 h-5 mr-2 shrink-0" />
+                      <span>계속하기</span>
+                    </Button>
+                    <Button
+                      onClick={restartGame}
+                      size="lg"
+                      variant="outline"
+                      className="w-full justify-start"
+                    >
+                      <RotateCcw className="w-5 h-5 mr-2 shrink-0" />
+                      <span>재시작</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
               </div>
             </div>
           </div>
@@ -920,60 +970,6 @@ function App() {
               )}
             </div>
           )}
-        </div>
-      )}
-
-      {/* 일시 정지 메뉴 - 왼쪽 사이드 패널로 배치해 HUD/텍스트 겹침 방지 */}
-      {gameState.isPaused && gameState.gameStatus === 'playing' && (
-        <div className="absolute inset-0 z-[100] pointer-events-auto flex">
-          <div className="w-[280px] sm:w-[320px] shrink-0 h-full bg-slate-900/98 border-r-4 border-blue-600 shadow-2xl flex flex-col p-6 gap-5 overflow-y-auto">
-            <div className="text-5xl shrink-0">⏸️</div>
-            <h2 className="text-2xl sm:text-3xl text-blue-400 font-bold shrink-0 leading-tight">
-              일시 정지
-            </h2>
-            <div className="text-gray-300 flex flex-col gap-2 shrink-0 text-left">
-              <p className="block text-sm">게임이 일시 정지되었습니다</p>
-              <p className="text-xs text-gray-400 block">
-                ESC: 계속 | I: 인벤토리
-              </p>
-            </div>
-            <div className="flex flex-col gap-3 shrink-0">
-              <Button
-                onClick={() => {
-                  togglePause();
-                  setShowInventory(true);
-                }}
-                size="lg"
-                className="w-full bg-cyan-600 hover:bg-cyan-700 justify-start"
-              >
-                <Package className="w-5 h-5 mr-2 shrink-0" />
-                <span>인벤토리 열기 (I)</span>
-              </Button>
-              <Button
-                onClick={togglePause}
-                size="lg"
-                className="w-full bg-blue-600 hover:bg-blue-700 justify-start"
-              >
-                <Play className="w-5 h-5 mr-2 shrink-0" />
-                <span>계속하기</span>
-              </Button>
-              <Button
-                onClick={restartGame}
-                size="lg"
-                variant="outline"
-                className="w-full justify-start"
-              >
-                <RotateCcw className="w-5 h-5 mr-2 shrink-0" />
-                <span>재시작</span>
-              </Button>
-            </div>
-          </div>
-          <button
-            type="button"
-            aria-label="배경 클릭 시 계속하기"
-            className="flex-1 bg-black/50 backdrop-blur-sm min-w-0"
-            onClick={togglePause}
-          />
         </div>
       )}
 
