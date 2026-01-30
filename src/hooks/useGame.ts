@@ -29,6 +29,10 @@ import {
 import { getClassById } from '../data/classes';
 import { fuseWeapons } from '../data/weaponFusions';
 import { initGameSession, updateStatisticsOnGameEnd } from '../utils/statistics';
+import { getLogicSteps } from '../utils/frameStabilizer';
+
+const FIXED_TIMESTEP_SEC = 1 / 60;
+const MAX_STEPS_PER_FRAME = 5;
 
 export const useGame = () => {
   const [selectedClass, setSelectedClass] = useState<ClassType | null>(() => loadSelectedClass());
@@ -40,7 +44,6 @@ export const useGame = () => {
   });
   
   const [highScore, setHighScore] = useState<number>(() => {
-    // 하이스코어를 별도로 불러오기
     const savedHighScore = localStorage.getItem('roguelike-highscore');
     if (savedHighScore) {
       return JSON.parse(savedHighScore);
@@ -49,23 +52,22 @@ export const useGame = () => {
     return savedData?.highScore ?? 0;
   });
 
-  /** 타이머: 직업 선택 후 플레이 중일 때만 증가, 일시정지 시 멈춤, 승/패 시 정지값 유지 */
   const [playElapsedSeconds, setPlayElapsedSeconds] = useState(0);
 
   const keysPressed = useRef<Set<string>>(new Set());
   const animationFrameId = useRef<number | undefined>(undefined);
   const gameStartTime = useRef<number>(0);
-  const lastPlayDurationRef = useRef<number>(0); // 승리/패배 시 정지된 플레이 시간(초)
+  const lastPlayDurationRef = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
   const lastRegenFrameRef = useRef<number>(0);
   const gameStateRef = useRef<GameState>(gameState);
+  const lastFrameTimeRef = useRef<number>(0);
+  const accumulatedTimeRef = useRef<number>(0);
 
-  // ref 동기화 (캔버스 RAF 루프에서 최신 상태 참조)
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
 
-  // 타이머: 승/패 시 정지된 시간을 화면에 반영
   useEffect(() => {
     if (gameState.gameStatus === 'defeat' || gameState.gameStatus === 'victory') {
       setPlayElapsedSeconds(lastPlayDurationRef.current);
@@ -75,7 +77,6 @@ export const useGame = () => {
     }
   }, [gameState.gameStatus]);
 
-  // 타이머: 플레이 중이고 일시정지가 아닐 때만 1초마다 갱신
   useEffect(() => {
     if (gameState.gameStatus !== 'playing' || gameState.isPaused) return;
     const interval = setInterval(() => {
@@ -84,15 +85,12 @@ export const useGame = () => {
     return () => clearInterval(interval);
   }, [gameState.gameStatus, gameState.isPaused]);
 
-  // 보상 선택 핸들러
   const handleRewardSelect = useCallback((option: RewardOption) => {
     setGameState((prev) => {
       let newPlayer = { ...prev.player };
 
       if (option.type === 'skill') {
-        // 스킬 추가
         newPlayer.availableSkills.push({ ...option.skill, currentCooldown: 0 });
-        // 패시브 스킬 중 체력 보너스가 있으면 최대 체력 재계산
         if (option.skill.isPassive && option.skill.passiveEffect?.healthBonus) {
           const baseMax = 100 + newPlayer.stats.vitality * 10;
           const artifactHealth = newPlayer.equippedArtifacts.reduce(
@@ -106,20 +104,16 @@ export const useGame = () => {
           newPlayer.health = Math.min(newPlayer.maxHealth, newPlayer.health + diff);
         }
       } else if (option.type === 'weapon') {
-        // 무기 획득 - 인벤토리에 추가하고 즉시 장착
-        newPlayer.weaponInventory = [...newPlayer.weaponInventory, newPlayer.weapon]; // 현재 무기를 인벤토리에
-        newPlayer.weapon = { ...option.weapon }; // 새 무기 장착
+        newPlayer.weaponInventory = [...newPlayer.weaponInventory, newPlayer.weapon];
+        newPlayer.weapon = { ...option.weapon };
         newPlayer.attackCooldown = 0;
       } else if (option.type === 'upgrade') {
-        // 무기 강화
         newPlayer.weapon = { ...option.weapon };
         newPlayer.attackCooldown = 0;
       } else if (option.type === 'evolution') {
-        // 무기 진화
         newPlayer.weapon = { ...option.weapon };
         newPlayer.attackCooldown = 0;
       } else if (option.type === 'fusion') {
-        // 무기 합성 - 장착된 무기는 보존하고 인벤토리에서만 재료 제거
         const weapon1 = option.weapon1;
         const weapon2 = option.weapon2;
         const currentWeapon = newPlayer.weapon;
@@ -135,10 +129,8 @@ export const useGame = () => {
         // 합성된 무기로 교체
         newPlayer.weapon = { ...option.weapon };
         newPlayer.attackCooldown = 0;
-        
-        // 인벤토리에서 재료 제거 (장착된 무기는 제거하지 않음)
+
         if (weapon1IsEquipped) {
-          // weapon1이 장착 중이면 weapon2만 인벤토리에서 제거
           newPlayer.weaponInventory = newPlayer.weaponInventory.filter(
             w => !(w.id === weapon2.id && (w.upgradeLevel || 0) === (weapon2.upgradeLevel || 0))
           );
@@ -149,8 +141,6 @@ export const useGame = () => {
             w => !(w.id === weapon1.id && (w.upgradeLevel || 0) === (weapon1.upgradeLevel || 0))
           );
         } else {
-          // 둘 다 인벤토리에 있는 경우 (현재 장착 무기와 무관)
-          // 현재 장착 무기를 인벤토리에 추가하고, 재료 두 개 제거
           newPlayer.weaponInventory = [
             currentWeapon,
             ...newPlayer.weaponInventory.filter(
@@ -162,38 +152,29 @@ export const useGame = () => {
           ];
         }
       } else if (option.type === 'stat') {
-        // 스텟 증가
         const newStats = { ...newPlayer.stats };
         newStats[option.statName] += option.amount;
         newPlayer.stats = newStats;
-        
-        // 체력 스텟이면 최대 체력도 증가
         if (option.statName === 'vitality') {
           const healthIncrease = option.amount * 10;
           newPlayer.maxHealth += healthIncrease;
           newPlayer.health += healthIncrease;
         }
       } else if (option.type === 'artifact') {
-        // 아티펙트 획득 - 보유 목록에 추가
         newPlayer.artifacts = [...newPlayer.artifacts, { ...option.artifact }];
       }
 
-      // 플레이어 위치 초기화
       newPlayer.position = { x: 100, y: CANVAS_HEIGHT - 100 };
       newPlayer.velocity = { x: 0, y: 0 };
       newPlayer.isJumping = false;
 
-      // 남은 레벨업 또는 보너스 보상이 있는지 체크
       const remainingLevelUps = prev.pendingLevelUps;
       const remainingBonusRewards = prev.pendingBonusRewards || 0;
       const totalRemaining = remainingLevelUps + remainingBonusRewards;
       
       let newState;
       if (totalRemaining > 0) {
-        // 남은 보상이 있으면 다시 보상 화면 표시
         const newRewardOptions = generateRewardOptions(newPlayer, prev.wave);
-        
-        // 레벨업 보상을 우선 처리
         const newPendingLevelUps = remainingLevelUps > 0 ? remainingLevelUps - 1 : 0;
         const newPendingBonusRewards = remainingLevelUps > 0 ? remainingBonusRewards : Math.max(0, remainingBonusRewards - 1);
         
@@ -210,7 +191,6 @@ export const useGame = () => {
           pendingBonusRewards: newPendingBonusRewards,
         };
       } else {
-        // 남은 보상이 없으면 게임 진행
         newState = {
           ...prev,
           player: newPlayer,
@@ -225,7 +205,6 @@ export const useGame = () => {
         };
       }
 
-      // 보상 선택 후 데이터 저장
       saveGameData({
         score: newState.score,
         wave: newState.wave,
@@ -248,7 +227,6 @@ export const useGame = () => {
     });
   }, []);
 
-  // 스킬 사용
   const useSkill = useCallback((skillIndex: number) => {
     setGameState((prev) => {
       if (prev.isPaused || prev.gameStatus !== 'playing') return prev;
@@ -258,13 +236,9 @@ export const useGame = () => {
 
       const newPlayer = { ...prev.player };
       const newProjectiles = [...prev.projectiles];
-      
-      // 스킬 쿨다운 설정 (빈 슬롯은 유지)
       newPlayer.equippedSkills = newPlayer.equippedSkills.map((s, i) =>
         i === skillIndex && s ? { ...s, currentCooldown: s.cooldown } : s
       );
-
-      // 스킬 효과 적용
       const critChance = newPlayer.stats.criticalChance;
       
       switch (skill.id) {
@@ -783,7 +757,6 @@ export const useGame = () => {
     });
   }, []);
 
-  // 일시 정지 토글
   const togglePause = useCallback(() => {
     setGameState((prev) => ({
       ...prev,
@@ -791,7 +764,6 @@ export const useGame = () => {
     }));
   }, []);
 
-  /** 모바일 터치: 좌/우 이동 키 상태 설정 (keysPressed와 동기화) */
   const setMovementKeys = useCallback((left: boolean, right: boolean) => {
     if (left) keysPressed.current.add('a');
     else keysPressed.current.delete('a');
@@ -799,10 +771,8 @@ export const useGame = () => {
     else keysPressed.current.delete('d');
   }, []);
 
-  // 키보드 이벤트 핸들러
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // ESC로 일시 정지
       if (e.key === 'Escape') {
         togglePause();
         return;
@@ -810,7 +780,6 @@ export const useGame = () => {
 
       keysPressed.current.add(e.key.toLowerCase());
 
-      // 점프
       if ((e.key === ' ' || e.key === 'w' || e.key === 'W') && !gameState.player.isJumping) {
         setGameState((prev) => ({
           ...prev,
@@ -822,7 +791,6 @@ export const useGame = () => {
         }));
       }
 
-      // 회피
       if ((e.key === 'Shift') && gameState.player.dodgeCooldown <= 0 && !gameState.player.isDodging) {
         setGameState((prev) => ({
           ...prev,
@@ -834,12 +802,9 @@ export const useGame = () => {
         }));
       }
 
-      // 기본 공격
       if ((e.key === 'j' || e.key === 'J') && gameState.player.attackCooldown <= 0 && !gameState.player.isAttacking) {
         setGameState((prev) => {
           const weapon = prev.player.weapon;
-          
-          // 아티펙트 + 패시브 스킬 효과 계산
           const artifactEffects = prev.player.equippedArtifacts.reduce((acc, artifact) => {
             if (!artifact) return acc;
             return {
@@ -857,29 +822,20 @@ export const useGame = () => {
             (1 + totalDamageBonus / 100)
           );
           const isBerserker = prev.player.activeSkillEffects.includes('berserker');
-          
-          // 치명타 체크 (카타나는 +30% + 민첩×0.5% 추가)
           let critChance = prev.player.stats.criticalChance + totalCritBonus;
-          
-          // 궁수 직업 패시브: 치명타 확률 +15%
+
           if (prev.player.class === 'archer') {
             const classInfo = getClassById('archer');
             if (classInfo && classInfo.passive.effect === 'critBonus') {
               critChance += classInfo.passive.value;
             }
           }
-          
-          // 스킬 효과: 독수리의 눈 (eagle_eye) - 치명타 +40%
           if (prev.player.activeSkillEffects.includes('eagle_eye')) {
             critChance += 40;
           }
-          
-          // 스킬 효과: 집중 (focus) - 치명타 +30%
           if (prev.player.activeSkillEffects.includes('focus')) {
             critChance += 30;
           }
-          
-          // 스킬 효과: 은신 (stealth) - 다음 공격 치명타 확정
           if (prev.player.activeSkillEffects.includes('stealth')) {
             critChance = 100;
           }
@@ -890,29 +846,20 @@ export const useGame = () => {
           const isCritical = Math.random() * 100 < critChance;
           let finalDamage = isCritical ? baseDamage * 2 : baseDamage;
           let attackDamage = isBerserker ? finalDamage * 2 : finalDamage;
-          
-          // 스킬 효과: 최후의 저항 (last_stand) - 체력 30% 이하일 때 공격력 2배
           if (prev.player.activeSkillEffects.includes('last_stand') && prev.player.health <= prev.player.maxHealth * 0.3) {
             attackDamage *= 2;
           }
-          
-          // 도끼: 방어력 무시 20% → 추가 피해 20%로 구현
           if (weapon.id === 'axe') {
             attackDamage = Math.floor(attackDamage * 1.2);
           }
-          
-          // 지팡이(magic 타입이고 element가 있는 무기)의 경우 일반 데미지를 속성 데미지로 변환
           let weaponDamage = attackDamage;
           let weaponElement = weapon.element;
           let weaponElementalDamage = weapon.elementalDamage;
           
           if (weapon.type === 'magic' && weapon.element && weapon.element !== 'physical') {
-            // 일반 데미지를 속성 데미지로 변환
             weaponElementalDamage = attackDamage;
-            weaponDamage = 0; // 일반 데미지는 0으로
+            weaponDamage = 0;
           }
-
-          // 혼돈 지팡이: 무작위 원소 효과
           if (weapon.id === 'chaos_staff') {
             const elements: ElementType[] = ['fire', 'ice', 'lightning', 'poison', 'dark'];
             const randomElement = elements[Math.floor(Math.random() * elements.length)];
@@ -930,21 +877,15 @@ export const useGame = () => {
             weaponElement = weaponElement || 'physical';
             weaponElementalDamage = (weaponElementalDamage || 0) + magicPortion;
           }
-          
-          // 마법사 직업 패시브: 원소 피해 +30%
           if (prev.player.class === 'mage' && weaponElementalDamage) {
             const classInfo = getClassById('mage');
             if (classInfo && classInfo.passive.effect === 'elementalBonus') {
               weaponElementalDamage = Math.floor(weaponElementalDamage * (1 + classInfo.passive.value));
             }
           }
-          
-          // 스킬 효과: 원소 지배 (elemental_mastery) - 원소 피해 100% 증가
           if (prev.player.activeSkillEffects.includes('elemental_mastery') && weaponElementalDamage) {
             weaponElementalDamage = Math.floor(weaponElementalDamage * 2);
           }
-          
-          // 스킬 효과: 맹독 (deadly_venom) - 공격에 독 효과 추가
           if (prev.player.activeSkillEffects.includes('deadly_venom')) {
             weaponElement = 'poison';
             weaponElementalDamage = (weaponElementalDamage || 0) + attackDamage * 0.5;
@@ -953,27 +894,19 @@ export const useGame = () => {
           const newProjectiles: Projectile[] = [];
           const currentTime = Date.now();
 
-          // 무기 타입에 따른 투사체 생성
           if (weapon.type === 'melee') {
-            // 무기별 크기 설정
             let projWidth = weapon.range;
             let projHeight = 10;
-            
             if (weapon.id === 'hammer' || weapon.id === 'greatsword') {
-              // 망치/대검: 넓은 공격
               projWidth = weapon.range * 1.5;
               projHeight = 25;
             } else if (weapon.id === 'spear') {
-              // 창: 얇고 긴 공격
               projWidth = weapon.range;
               projHeight = 6;
             } else if (weapon.id === 'katana') {
-              // 카타나: 초승달 모양
               projWidth = weapon.range * 1.2;
               projHeight = 12;
             }
-            
-            // 쌍검은 연속 2발
             const attackCount = weapon.id === 'dual_sword' ? 2 : 1;
             
             for (let i = 0; i < attackCount; i++) {
@@ -1006,10 +939,8 @@ export const useGame = () => {
                     },
                   ],
                 }));
-              }, i * 100); // 100ms 간격으로 발사
+              }, i * 100);
             }
-            
-            // 첫 번째 투사체는 즉시 추가 (쌍검 제외, 쌍검은 setTimeout으로만 처리)
             if (weapon.id !== 'dual_sword') {
               newProjectiles.push({
                 position: {
@@ -1035,7 +966,6 @@ export const useGame = () => {
               });
             }
           } else {
-            // 원거리/마법 무기
             const count = weapon.projectileCount || 1;
             const speed = weapon.projectileSpeed || 8;
 
@@ -1070,7 +1000,6 @@ export const useGame = () => {
             }
           }
 
-          // 암살자 직업 패시브: 공격 속도 +20% (쿨다운 20% 감소)
           let finalAttackCooldown = weapon.attackSpeed;
           if (prev.player.class === 'assassin') {
             const classInfo = getClassById('assassin');
@@ -1078,15 +1007,11 @@ export const useGame = () => {
               finalAttackCooldown = Math.floor(weapon.attackSpeed * (1 - classInfo.passive.value));
             }
           }
-          
-          // 아티펙트 효과: 공격속도 증가 (쿨다운 감소)
           if (artifactEffects.attackSpeedBonus > 0) {
             finalAttackCooldown = Math.floor(
               finalAttackCooldown * (1 - artifactEffects.attackSpeedBonus / 100)
             );
           }
-          
-          // 스킬 효과: 속사 (rapid_fire) - 공격 속도 50% 증가
           if (prev.player.activeSkillEffects.includes('rapid_fire')) {
             finalAttackCooldown = Math.floor(finalAttackCooldown * 0.5);
           }
@@ -1103,7 +1028,6 @@ export const useGame = () => {
         });
       }
 
-      // 스킬 키 (1, 2, 3)
       if (e.key >= '1' && e.key <= '3') {
         const skillIndex = parseInt(e.key) - 1;
         useSkill(skillIndex);
@@ -1123,18 +1047,30 @@ export const useGame = () => {
     };
   }, [gameState.player.isJumping, gameState.player.dodgeCooldown, gameState.player.isDodging, gameState.player.attackCooldown, gameState.player.isAttacking, gameState.player.weapon, useSkill, togglePause]);
 
-  // 게임 루프
   useEffect(() => {
     if (gameState.gameStatus !== 'playing' || gameState.isPaused) return;
 
     const gameLoop = () => {
+      const now = performance.now();
+      const deltaSec = lastFrameTimeRef.current > 0
+        ? (now - lastFrameTimeRef.current) / 1000
+        : FIXED_TIMESTEP_SEC;
+      lastFrameTimeRef.current = now;
+
+      const { steps } = getLogicSteps(deltaSec, accumulatedTimeRef, {
+        ticksPerSecond: 60,
+        maxStepsPerFrame: MAX_STEPS_PER_FRAME,
+      });
+
+      if (steps === 0) {
+        animationFrameId.current = requestAnimationFrame(gameLoop);
+        return;
+      }
+
       frameCountRef.current += 1;
       startTransition(() => {
         setGameState((prev) => {
-          // 플레이어 업데이트
         let newPlayer = updatePlayer(prev.player, keysPressed.current, prev.platforms);
-
-        // 아티팩트: 5초당 치유 (60fps 기준 300프레임 = 5초)
         const regenPercent = newPlayer.equippedArtifacts.reduce(
           (sum, a) => sum + (a?.effects.regenPercentPer5Sec ?? 0),
           0
@@ -1150,8 +1086,6 @@ export const useGame = () => {
             health: Math.min(newPlayer.maxHealth, newPlayer.health + healAmount),
           };
         }
-
-        // 보스 업데이트
         let { boss: newBoss, projectiles: newProjectiles } = updateBoss(
           prev.boss,
           newPlayer,
@@ -1159,19 +1093,11 @@ export const useGame = () => {
           prev.wave,
           prev.difficulty
         );
-
-        // 데미지 텍스트 배열 초기화
         const newDamageTexts: DamageText[] = [];
-
-        // 보스 디버프 처리
         newBoss.debuffs = newBoss.debuffs.filter(debuff => {
           debuff.duration--;
-          
-          // 지속 피해 (틱 피해)
           if (debuff.tickDamage && debuff.duration % 60 === 0) {
             newBoss.health -= debuff.tickDamage;
-            
-            // 틱 데미지 텍스트 (속성 표시)
             newDamageTexts.push({
               id: `${Date.now()}-${Math.random()}-tick`,
               position: {
@@ -1188,27 +1114,16 @@ export const useGame = () => {
           
           return debuff.duration > 0;
         });
-
-        // 투사체 업데이트
         const hasSlowEffect = newPlayer.activeSkillEffects.includes('slow');
         let updatedProjectiles = updateProjectiles(newProjectiles, hasSlowEffect);
-        
-        // 추적 투사체 업데이트 (플레이어의 투사체만)
         updatedProjectiles = updatedProjectiles.map((proj) => {
           if (proj.fromPlayer && proj.isTracking) {
-            // 보스를 향한 방향 계산
             const dx = (newBoss.position.x + newBoss.width / 2) - (proj.position.x + proj.width / 2);
             const dy = (newBoss.position.y + newBoss.height / 2) - (proj.position.y + proj.height / 2);
             const distance = Math.sqrt(dx * dx + dy * dy);
-            
             if (distance > 0) {
-              // 현재 속도
               const currentSpeed = Math.sqrt(proj.velocity.x ** 2 + proj.velocity.y ** 2);
-              
-              // 추적 강도 (0~1, 1에 가까울수록 강하게 추적)
               const trackingStrength = 0.1;
-              
-              // 목표 방향으로 부드럽게 회전
               const targetVx = (dx / distance) * currentSpeed;
               const targetVy = (dy / distance) * currentSpeed;
               
@@ -1223,61 +1138,35 @@ export const useGame = () => {
           }
           return proj;
         });
-
-        // 방어력 계산
         let damageReduction = 1 - (newPlayer.stats.defense * 0.02);
-        
-        // 스킬 효과: 철갑 (iron_skin) - 받는 피해 50% 감소
         if (newPlayer.activeSkillEffects.includes('iron_skin')) {
           damageReduction *= 0.5;
         }
-        
-        // 스킬 효과: 불굴의 의지 (unbreakable) - 받는 피해 70% 감소
         if (newPlayer.activeSkillEffects.includes('unbreakable')) {
           damageReduction *= 0.3;
         }
-        
-        // 스킬 효과: 마나 보호막 (mana_shield) - 모든 피해 무효화
         const hasManaShield = newPlayer.activeSkillEffects.includes('mana_shield');
-        
-        // 스킬 효과: 재생 (regeneration) - 지속 체력 회복
         if (newPlayer.activeSkillEffects.includes('regeneration')) {
           newPlayer.health = Math.min(newPlayer.maxHealth, newPlayer.health + 0.5);
         }
-        
-        // 투사체 수명 체크
         const currentGameTime = Date.now();
         updatedProjectiles = updatedProjectiles.filter((proj) => {
-          // lifetime이 있는 경우 수명 체크
           if (proj.lifetime && proj.createdAt) {
-            const elapsed = (currentGameTime - proj.createdAt) / (1000 / 60); // 프레임 단위로 변환
-            if (elapsed > proj.lifetime) {
-              return false; // 수명이 다한 투사체 제거
+            const elapsed = (currentGameTime - proj.createdAt) / (1000 / 60);
+            if (elapsed > proj.lifetime) return false;
+          }
+          return true;
+        });
+        updatedProjectiles = updatedProjectiles.filter((proj) => {
+          if (!proj.piercing) {
+            for (const platform of prev.platforms) {
+              if (platform.isWall && checkProjectilePlatformCollision(proj, platform)) return false;
             }
           }
           return true;
         });
-
-        // 투사체와 벽 충돌 체크 (관통이 아닌 경우만, 벽에만 충돌)
         updatedProjectiles = updatedProjectiles.filter((proj) => {
-          // 관통이 아닌 투사체는 벽과 충돌 시 제거
-          if (!proj.piercing) {
-            for (const platform of prev.platforms) {
-              // isWall이 true인 플랫폼(벽)에만 충돌 체크
-              if (platform.isWall && checkProjectilePlatformCollision(proj, platform)) {
-                return false; // 투사체 제거
-              }
-            }
-          }
-          
-          return true; // 계속 유지
-        });
-
-        // 투사체 충돌 체크 (보스/플레이어)
-        updatedProjectiles = updatedProjectiles.filter((proj) => {
-          // 플레이어 투사체와 보스 충돌
           if (proj.fromPlayer && checkCollision(proj, newBoss)) {
-            // 성스러운 지팡이는 보스에게 1.5배 추가 피해
             const holyBonus = proj.weaponId === 'holy_staff' ? 1.5 : 1;
             newBoss.health -= proj.damage * holyBonus;
             
@@ -1728,7 +1617,6 @@ export const useGame = () => {
     };
   }, [gameState.gameStatus, gameState.isPaused, highScore]);
 
-  // 직업 선택 핸들러
   const selectClass = useCallback(
     (classType: ClassType, difficulty: Difficulty = 'normal') => {
       setSelectedClass(classType);
@@ -1738,14 +1626,12 @@ export const useGame = () => {
     []
   );
 
-  // 게임 재시작 (승리/패배 후 메뉴로: 저장 데이터 삭제 후 완전 초기화)
   const restartGame = useCallback(() => {
     localStorage.removeItem('roguelike-game-data');
     const classType = loadSelectedClass() || selectedClass || 'warrior';
     setGameState(createInitialGameState(classType, null, 'normal'));
   }, [selectedClass]);
 
-  // 게임 리셋
   const resetGame = useCallback(() => {
     localStorage.removeItem('roguelike-game-data');
     localStorage.removeItem('roguelike-selected-class');
@@ -1755,7 +1641,6 @@ export const useGame = () => {
     setHighScore(0);
   }, [selectedClass]);
 
-  // 스텟 업그레이드 (최적화: setGameState만 사용하므로 의존성 없음)
   const upgradeStat = useCallback((statName: 'strength' | 'vitality' | 'agility' | 'defense') => {
     setGameState((prev) => {
       if (prev.player.statPoints <= 0) return prev;
@@ -1779,7 +1664,6 @@ export const useGame = () => {
     });
   }, []);
 
-  // 스킬 장착 (같은 스킬은 한 슬롯에만; 다른 슬롯에 있으면 제거 후 목표 슬롯에만 장착)
   const equipSkill = useCallback((skill: Skill, slotIndex: number) => {
     setGameState((prev) => {
       const current = prev.player.equippedSkills;
@@ -1798,7 +1682,6 @@ export const useGame = () => {
     });
   }, []);
 
-  // 난이도 선택 및 게임 시작
   const startGame = useCallback((difficulty: Difficulty) => {
     gameStartTime.current = initGameSession(); // 게임 시작 시간 기록
     setGameState(prev => ({
@@ -1808,7 +1691,6 @@ export const useGame = () => {
     }));
   }, []);
 
-  // 인벤토리 관련 함수들
   const equipWeaponFromInventory = useCallback((weapon: Weapon) => {
     setGameState((prev) => {
       // 현재 장착 중인 무기를 인벤토리에 추가
@@ -1851,7 +1733,6 @@ export const useGame = () => {
     });
   }, [highScore]);
 
-  // 보상 등에서 사용하는 무료 강화 (기존 로직 유지)
   const upgradeWeaponInInventory = useCallback((weapon: Weapon) => {
     setGameState((prev) => {
       const upgraded = upgradeWeapon(weapon);
@@ -2252,7 +2133,6 @@ export const useGame = () => {
     });
   }, [highScore]);
 
-  /** 승리/패배 시 정지된 플레이 시간(초). 리더보드 제출 시 사용 */
   const getLastPlayDuration = useCallback(() => lastPlayDurationRef.current, []);
 
   return {

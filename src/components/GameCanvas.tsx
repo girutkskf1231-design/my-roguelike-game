@@ -4,7 +4,6 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../utils/gameLogic';
 
 interface GameCanvasProps {
   gameState: GameState;
-  /** 제공 시 캔버스는 RAF로 매 프레임 그리기(플레임 상승). 미제공 시 gameState 변경 시에만 그리기. */
   gameStateRef?: React.RefObject<GameState>;
 }
 
@@ -16,9 +15,15 @@ const STARS = Array.from({ length: STAR_COUNT }, (_, i) => ({
   alpha: 0.3 + (i % 5) * 0.15,
 }));
 
+const CLASS_COLORS: Record<string, { primary: string; secondary: string; accent: string; head: string; legs: string; eye: string; decoration: string }> = {
+  warrior: { primary: '#3b82f6', secondary: '#1e40af', accent: '#60a5fa', head: '#1e3a8a', legs: '#2563eb', eye: '#60a5fa', decoration: '#fbbf24' },
+  archer: { primary: '#059669', secondary: '#047857', accent: '#10b981', head: '#92400e', legs: '#78716c', eye: '#34d399', decoration: '#a3e635' },
+  mage: { primary: '#7c3aed', secondary: '#5b21b6', accent: '#a78bfa', head: '#4c1d95', legs: '#6d28d9', eye: '#c084fc', decoration: '#fde047' },
+  assassin: { primary: '#1f2937', secondary: '#111827', accent: '#374151', head: '#0f172a', legs: '#1e293b', eye: '#dc2626', decoration: '#ef4444' },
+};
+
 const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawTimeRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -27,167 +32,102 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
-    const bgGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+    const staticCanvas = document.createElement('canvas');
+    staticCanvas.width = CANVAS_WIDTH;
+    staticCanvas.height = CANVAS_HEIGHT;
+    const staticCtx = staticCanvas.getContext('2d', { alpha: false });
+    if (!staticCtx) return;
+
+    const bgGradient = staticCtx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
     bgGradient.addColorStop(0, '#0f172a');
     bgGradient.addColorStop(0.5, '#1e1b4b');
     bgGradient.addColorStop(1, '#1a1a2e');
 
-    const draw = (state: GameState) => {
-    drawTimeRef.current = performance.now();
-    const t = drawTimeRef.current;
-
-    // 배경 그리기 (캐시된 그라데이션)
-    ctx.fillStyle = bgGradient;
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-    // 별 효과 (사전 계산된 위치)
-    ctx.fillStyle = '#ffffff';
-    for (let i = 0; i < STAR_COUNT; i++) {
-      const s = STARS[i];
-      ctx.globalAlpha = s.alpha;
-      ctx.fillRect(s.x, s.y, s.size, s.size);
-    }
-    ctx.globalAlpha = 1;
-
-    // 플랫폼 그리기 (돌 질감)
-    state.platforms.forEach((platform) => {
-      // 플랫폼 그림자
-      ctx.fillStyle = '#1a202c';
-      ctx.fillRect(platform.x + 3, platform.y + 3, platform.width, platform.height);
-      
-      // 벽과 일반 플랫폼 색상 구분
-      if (platform.isWall) {
-        // 벽 (진한 회색, 빨간 테두리)
-        const wallGradient = ctx.createLinearGradient(
-          platform.x,
-          platform.y,
-          platform.x,
-          platform.y + platform.height
-        );
-        wallGradient.addColorStop(0, '#52525b');
-        wallGradient.addColorStop(1, '#27272a');
-        ctx.fillStyle = wallGradient;
-        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-        
-        // 벽 균열 패턴 (더 많이)
-        ctx.strokeStyle = '#18181b';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < platform.width / 15; i++) {
-          ctx.beginPath();
-          ctx.moveTo(platform.x + i * 15 + 5, platform.y);
-          ctx.lineTo(platform.x + i * 15 + 8, platform.y + platform.height);
-          ctx.stroke();
-        }
-        
-        // 벽 테두리 (빨간색 강조)
-        ctx.strokeStyle = '#ef4444';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
-        
-      } else {
-        // 일반 플랫폼 (기존 디자인)
-        const gradient = ctx.createLinearGradient(
-          platform.x,
-          platform.y,
-          platform.x,
-          platform.y + platform.height
-        );
-        gradient.addColorStop(0, '#4a5568');
-        gradient.addColorStop(1, '#2d3748');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-        
-        // 돌 질감 (균열)
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < platform.width / 30; i++) {
-          ctx.beginPath();
-          ctx.moveTo(platform.x + i * 30 + 10, platform.y);
-          ctx.lineTo(platform.x + i * 30 + 15, platform.y + platform.height);
-          ctx.stroke();
-        }
-        
-        // 플랫폼 하이라이트
-        ctx.strokeStyle = '#64748b';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(platform.x, platform.y);
-        ctx.lineTo(platform.x + platform.width, platform.y);
-        ctx.stroke();
-        
-        // 플랫폼 테두리
-        ctx.strokeStyle = '#0f172a';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+    function drawStaticLayer(state: GameState) {
+      staticCtx.fillStyle = bgGradient;
+      staticCtx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      staticCtx.fillStyle = '#ffffff';
+      for (let i = 0; i < STAR_COUNT; i++) {
+        const s = STARS[i];
+        staticCtx.globalAlpha = s.alpha;
+        staticCtx.fillRect(s.x, s.y, s.size, s.size);
       }
-    });
+      staticCtx.globalAlpha = 1;
+      state.platforms.forEach((platform) => {
+        staticCtx.fillStyle = '#1a202c';
+        staticCtx.fillRect(platform.x + 3, platform.y + 3, platform.width, platform.height);
+        if (platform.isWall) {
+          const wallGradient = staticCtx.createLinearGradient(platform.x, platform.y, platform.x, platform.y + platform.height);
+          wallGradient.addColorStop(0, '#52525b');
+          wallGradient.addColorStop(1, '#27272a');
+          staticCtx.fillStyle = wallGradient;
+          staticCtx.fillRect(platform.x, platform.y, platform.width, platform.height);
+          staticCtx.strokeStyle = '#18181b';
+          staticCtx.lineWidth = 1;
+          for (let i = 0; i < platform.width / 15; i++) {
+            staticCtx.beginPath();
+            staticCtx.moveTo(platform.x + i * 15 + 5, platform.y);
+            staticCtx.lineTo(platform.x + i * 15 + 8, platform.y + platform.height);
+            staticCtx.stroke();
+          }
+          staticCtx.strokeStyle = '#ef4444';
+          staticCtx.lineWidth = 2;
+          staticCtx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+        } else {
+          const gradient = staticCtx.createLinearGradient(platform.x, platform.y, platform.x, platform.y + platform.height);
+          gradient.addColorStop(0, '#4a5568');
+          gradient.addColorStop(1, '#2d3748');
+          staticCtx.fillStyle = gradient;
+          staticCtx.fillRect(platform.x, platform.y, platform.width, platform.height);
+          staticCtx.strokeStyle = '#1e293b';
+          staticCtx.lineWidth = 1;
+          for (let i = 0; i < platform.width / 30; i++) {
+            staticCtx.beginPath();
+            staticCtx.moveTo(platform.x + i * 30 + 10, platform.y);
+            staticCtx.lineTo(platform.x + i * 30 + 15, platform.y + platform.height);
+            staticCtx.stroke();
+          }
+          staticCtx.strokeStyle = '#64748b';
+          staticCtx.lineWidth = 2;
+          staticCtx.beginPath();
+          staticCtx.moveTo(platform.x, platform.y);
+          staticCtx.lineTo(platform.x + platform.width, platform.y);
+          staticCtx.stroke();
+          staticCtx.strokeStyle = '#0f172a';
+          staticCtx.lineWidth = 3;
+          staticCtx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+        }
+      });
+    }
 
-    // 플레이어 그리기 (직업별 스타일)
-    const player = state.player;
+    let lastStaticWave = -1;
+
+    const draw = (state: GameState) => {
+      const t = performance.now();
+      if (state.wave !== lastStaticWave) {
+        drawStaticLayer(state);
+        lastStaticWave = state.wave;
+      }
+      ctx.drawImage(staticCanvas, 0, 0);
+
+      const player = state.player;
     const px = player.position.x;
     const py = player.position.y;
-    
-    // 직업별 색상 정의
-    const classColors = {
-      warrior: {
-        primary: '#3b82f6',    // 파란색 (갑옷)
-        secondary: '#1e40af',  // 진한 파란색 (디테일)
-        accent: '#60a5fa',     // 밝은 파란색 (팔)
-        head: '#1e3a8a',       // 투구
-        legs: '#2563eb',       // 다리
-        eye: '#60a5fa',        // 눈
-        decoration: '#fbbf24', // 금색 장식
-      },
-      archer: {
-        primary: '#059669',    // 녹색 (옷)
-        secondary: '#047857',  // 진한 녹색 (디테일)
-        accent: '#10b981',     // 밝은 녹색 (팔)
-        head: '#92400e',       // 갈색 (모자)
-        legs: '#78716c',       // 회갈색 (다리)
-        eye: '#34d399',        // 녹색 눈
-        decoration: '#a3e635', // 연두색 장식
-      },
-      mage: {
-        primary: '#7c3aed',    // 보라색 (로브)
-        secondary: '#5b21b6',  // 진한 보라색 (디테일)
-        accent: '#a78bfa',     // 밝은 보라색 (팔)
-        head: '#4c1d95',       // 보라색 (모자)
-        legs: '#6d28d9',       // 보라색 (다리)
-        eye: '#c084fc',        // 연보라색 눈
-        decoration: '#fde047', // 황금색 장식 (마법)
-      },
-      assassin: {
-        primary: '#1f2937',    // 검은색 (옷)
-        secondary: '#111827',  // 더 진한 검은색 (디테일)
-        accent: '#374151',     // 회색 (팔)
-        head: '#0f172a',       // 검은색 (두건)
-        legs: '#1e293b',       // 검은색 (다리)
-        eye: '#dc2626',        // 빨간색 눈
-        decoration: '#ef4444', // 빨간색 장식
-      },
-    };
-    
-    // 직업/무기 조합에 따른 색상 (엑스칼리버 = 성기사 폼)
-    const isExcaliburPaladin =
-      player.class === 'warrior' && player.weapon?.id === 'excalibur';
-
-    let colors = classColors[player.class];
-
+    const isExcaliburPaladin = player.class === 'warrior' && player.weapon?.id === 'excalibur';
+    let colors = CLASS_COLORS[player.class] ?? CLASS_COLORS.warrior;
     if (isExcaliburPaladin) {
-      // 성기사 전용 팔레트 (금색 + 흰색 + 붉은 포인트)
       colors = {
         ...colors,
-        primary: '#facc15',      // 황금 갑옷
-        secondary: '#eab308',    // 진한 금색 디테일
-        accent: '#fee2e2',       // 약간 붉은 톤의 팔/장식
-        head: '#fbbf24',         // 금색 투구
-        legs: '#e5e7eb',         // 은색/흰색 다리 갑옷
-        eye: '#fef9c3',          // 밝은 빛나는 눈
-        decoration: '#dc2626',   // 붉은 망토/문장
+        primary: '#facc15',
+        secondary: '#eab308',
+        accent: '#fee2e2',
+        head: '#fbbf24',
+        legs: '#e5e7eb',
+        eye: '#fef9c3',
+        decoration: '#dc2626',
       };
     }
-    
-    // 회피 중일 때 잔상 효과
+
     if (player.isDodging) {
       for (let i = 0; i < 3; i++) {
         ctx.globalAlpha = 0.1 * (3 - i);
@@ -202,7 +142,6 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     
     ctx.globalAlpha = player.isDodging ? 0.4 : 1;
 
-    // 성기사 전용 망토 (몸 뒤에 먼저 그림)
     if (isExcaliburPaladin) {
       const capeX = px + 4;
       const capeY = py + 10;
@@ -216,26 +155,21 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
       ctx.fillStyle = '#fbbf24';
       ctx.fillRect(capeX, capeY + capeHeight - 2, capeWidth, 2);
     }
-    
-    // 다리
+
     ctx.fillStyle = player.isDodging ? '#34d399' : colors.legs;
     ctx.fillRect(px + 8, py + 30, 6, 10);
     ctx.fillRect(px + 16, py + 30, 6, 10);
-    
-    // 몸통 (갑옷/옷)
+
     const bodyColor = player.isDodging ? '#10b981' : colors.primary;
     ctx.fillStyle = bodyColor;
     ctx.fillRect(px + 5, py + 10, 20, 22);
-    
-    // 디테일 (어깨/장식)
+
     ctx.fillStyle = player.isDodging ? '#059669' : colors.secondary;
     if (player.class === 'warrior') {
-      // 전사: 갑옷 어깨
       ctx.fillRect(px + 2, py + 10, 8, 8);
       ctx.fillRect(px + 20, py + 10, 8, 8);
 
       if (isExcaliburPaladin) {
-        // 성기사: 가슴 중앙 붉은 문장과 금색 테두리
         ctx.fillStyle = colors.decoration;
         ctx.fillRect(px + 13, py + 14, 4, 12);
         ctx.fillRect(px + 11, py + 18, 8, 2);
@@ -245,88 +179,69 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
         ctx.strokeRect(px + 8, py + 12, 14, 18);
       }
     } else if (player.class === 'mage') {
-      // 마법사: 로브 장식
       ctx.fillRect(px + 8, py + 12, 14, 3);
-      // 마법 무늬
       ctx.fillStyle = colors.decoration;
       ctx.fillRect(px + 10, py + 18, 2, 2);
       ctx.fillRect(px + 18, py + 18, 2, 2);
       ctx.fillRect(px + 14, py + 22, 2, 2);
     } else if (player.class === 'archer') {
-      // 궁수: 가죽 어깨 패드
       ctx.fillRect(px + 3, py + 10, 6, 6);
       ctx.fillRect(px + 21, py + 10, 6, 6);
     } else if (player.class === 'assassin') {
-      // 암살자: 날카로운 어깨
       ctx.fillRect(px + 1, py + 10, 5, 5);
       ctx.fillRect(px + 24, py + 10, 5, 5);
     }
-    
-    // 팔
+
     ctx.fillStyle = player.isDodging ? '#34d399' : colors.accent;
     if (player.isAttacking) {
-      // 공격 중 팔 위치
       const armX = player.facingRight ? px + 22 : px + 2;
       ctx.fillRect(armX, py + 18, 10, 5);
     } else {
       ctx.fillRect(px + 2, py + 18, 5, 12);
       ctx.fillRect(px + 23, py + 18, 5, 12);
     }
-    
-    // 머리 (투구/모자/두건)
+
     ctx.fillStyle = player.isDodging ? '#10b981' : colors.head;
     ctx.fillRect(px + 7, py, 16, 12);
-    
-    // 직업별 머리 장식
+
     if (player.class === 'warrior') {
-      // 전사: 투구 장식
       ctx.fillStyle = colors.decoration;
       ctx.fillRect(px + 13, py - 3, 4, 5);
 
       if (isExcaliburPaladin) {
-        // 성기사: 투구 윗부분에 더 큰 장식
         ctx.fillRect(px + 12, py - 6, 6, 3);
         ctx.fillRect(px + 11, py - 8, 2, 3);
         ctx.fillRect(px + 17, py - 8, 2, 3);
       }
     } else if (player.class === 'mage') {
-      // 마법사: 뾰족한 모자
       ctx.fillStyle = colors.head;
       ctx.fillRect(px + 10, py - 4, 10, 5);
       ctx.fillRect(px + 12, py - 8, 6, 5);
       ctx.fillStyle = colors.decoration;
       ctx.fillRect(px + 13, py - 6, 4, 2);
     } else if (player.class === 'archer') {
-      // 궁수: 깃털
       ctx.fillStyle = colors.decoration;
       ctx.fillRect(px + 20, py - 2, 3, 8);
     } else if (player.class === 'assassin') {
-      // 암살자: 두건 끝
       ctx.fillStyle = colors.decoration;
       ctx.fillRect(px + 20, py + 2, 4, 3);
     }
-    
-    // 얼굴
+
     ctx.fillStyle = '#1f2937';
     ctx.fillRect(px + 10, py + 4, 10, 6);
-    
-    // 눈 (빛나는)
+
     ctx.fillStyle = player.isDodging ? '#34d399' : colors.eye;
     const eyeX1 = player.facingRight ? px + 16 : px + 11;
     ctx.fillRect(eyeX1, py + 6, 2, 2);
-    
-    // 직업별 추가 장비
+
     if (player.class === 'warrior') {
-      // 전사: 방패
       const shieldX = player.facingRight ? px - 2 : px + 28;
 
       if (isExcaliburPaladin) {
-        // 성기사 전용 대형 성기사 방패 (금색 + 붉은 문장)
         const width = 10;
         const height = 18;
         const baseY = py + 10;
 
-        // 방패 바탕
         const grad = ctx.createLinearGradient(
           shieldX,
           baseY,
@@ -338,16 +253,13 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
         ctx.fillStyle = grad;
         ctx.fillRect(shieldX, baseY, width, height);
 
-        // 붉은 방패 중앙 문장
         ctx.fillStyle = '#991b1b';
         ctx.fillRect(shieldX + 3, baseY + 3, width - 6, height - 6);
 
-        // 십자가 형태의 금색 문양
         ctx.fillStyle = '#fef3c7';
         ctx.fillRect(shieldX + 4, baseY + 6, 2, height - 10);
         ctx.fillRect(shieldX + 2, baseY + 10, width - 4, 2);
 
-        // 날개 장식 (측면)
         ctx.fillStyle = '#e5e7eb';
         if (player.facingRight) {
           ctx.fillRect(shieldX - 3, baseY + 4, 3, 8);
@@ -355,7 +267,6 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
           ctx.fillRect(shieldX + width, baseY + 4, 3, 8);
         }
 
-        // 외곽선
         ctx.strokeStyle = '#92400e';
         ctx.lineWidth = 2;
         ctx.strokeRect(shieldX, baseY, width, height);
@@ -367,15 +278,12 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
         ctx.strokeRect(shieldX, py + 15, 6, 12);
       }
     } else if (player.class === 'archer') {
-      // 궁수: 화살통
       ctx.fillStyle = '#92400e';
       const quiverX = player.facingRight ? px + 26 : px - 2;
       ctx.fillRect(quiverX, py + 12, 4, 14);
-      // 화살
       ctx.fillStyle = '#d97706';
       ctx.fillRect(quiverX + 1, py + 10, 2, 4);
     } else if (player.class === 'mage') {
-      // 마법사: 떠다니는 마법 구슬 (프레임 시간 기반, Date.now 제거)
       const orbX = player.facingRight ? px + 28 : px - 4;
       const orbY = py + 8 + Math.sin(t / 200) * 2;
       ctx.fillStyle = colors.decoration;
@@ -383,7 +291,6 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
       ctx.fillRect(orbX, orbY, 4, 4);
       ctx.globalAlpha = 1;
     } else if (player.class === 'assassin') {
-      // 암살자: 허리에 단검
       ctx.fillStyle = '#6b7280';
       const daggerX = player.facingRight ? px + 22 : px + 2;
       ctx.fillRect(daggerX, py + 20, 6, 2);
@@ -391,7 +298,6 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
       ctx.fillRect(daggerX + 4, py + 18, 2, 3);
     }
     
-    // 무기 그리기 (장착한 무기 타입에 따라)
     const weapon = player.weapon;
     const weaponX = player.facingRight ? px + player.width + 2 : px - 22;
     const weaponY = py + player.height / 2;
@@ -802,12 +708,10 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     
     ctx.globalAlpha = 1;
 
-    // 보스 그리기 (악마 스타일)
     const boss = state.boss;
     const bx = boss.position.x;
     const by = boss.position.y;
-    
-    // 패턴에 따른 색상 변화
+
     const patternColors = [
       { body: '#ef4444', dark: '#991b1b', glow: '#fca5a5' }, // 빨강
       { body: '#8b5cf6', dark: '#6d28d9', glow: '#c4b5fd' }, // 보라
@@ -821,8 +725,7 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
       { body: '#eab308', dark: '#a16207', glow: '#fde047' }, // 노랑
     ];
     const bossColors = patternColors[boss.currentPattern % patternColors.length];
-    
-    // 보스 오라 (발광 효과)
+
     ctx.globalAlpha = 0.3;
     for (let i = 3; i > 0; i--) {
       ctx.fillStyle = bossColors.glow;
@@ -834,8 +737,7 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
       );
     }
     ctx.globalAlpha = 1;
-    
-    // 날개
+
     ctx.fillStyle = bossColors.dark;
     ctx.beginPath();
     // 왼쪽 날개
@@ -968,7 +870,6 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     ctx.lineWidth = 3;
     ctx.strokeRect(bx + 5, by, 50, 80);
 
-    // 투사체 그리기
     state.projectiles.forEach((proj) => {
       const projCenterX = proj.position.x + proj.width / 2;
       const projCenterY = proj.position.y + proj.height / 2;
@@ -1342,42 +1243,34 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
       }
     });
 
-    // 체력바 그리기 (플레이어)
     const playerHealthPercent = (player.health / player.maxHealth) * 100;
-    
-    // 체력바 배경 (어두운)
+
     ctx.fillStyle = '#1f2937';
     ctx.fillRect(px - 5, py - 18, player.width + 10, 10);
-    
-    // 체력바 (그라데이션)
+
     const healthColor = playerHealthPercent > 50 ? '#10b981' : playerHealthPercent > 25 ? '#f59e0b' : '#ef4444';
     const healthGradient = ctx.createLinearGradient(px - 5, py - 18, px - 5, py - 8);
     healthGradient.addColorStop(0, healthColor);
     healthGradient.addColorStop(1, playerHealthPercent > 50 ? '#059669' : playerHealthPercent > 25 ? '#d97706' : '#dc2626');
     ctx.fillStyle = healthGradient;
     ctx.fillRect(px - 5, py - 18, ((player.width + 10) * playerHealthPercent) / 100, 10);
-    
-    // 체력바 하이라이트
+
     ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
     ctx.fillRect(px - 5, py - 18, ((player.width + 10) * playerHealthPercent) / 100, 3);
-    
-    // 체력바 테두리
+
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 2;
     ctx.strokeRect(px - 5, py - 18, player.width + 10, 10);
 
-    // 체력바 그리기 (보스)
     const bossHealthPercent = (boss.health / boss.maxHealth) * 100;
     const bossBarWidth = 220;
     const bossBarHeight = 14;
     const bossBarX = bx + boss.width / 2 - bossBarWidth / 2;
     const bossBarY = by - 35;
-    
-    // 체력바 배경 (어두운)
+
     ctx.fillStyle = '#1f2937';
     ctx.fillRect(bossBarX, bossBarY, bossBarWidth, bossBarHeight);
-    
-    // 체력바 (그라데이션 - 패턴별 색상)
+
     const bossHealthGradient = ctx.createLinearGradient(
       bossBarX,
       bossBarY,
@@ -1388,12 +1281,10 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     bossHealthGradient.addColorStop(1, bossColors.body);
     ctx.fillStyle = bossHealthGradient;
     ctx.fillRect(bossBarX, bossBarY, (bossBarWidth * bossHealthPercent) / 100, bossBarHeight);
-    
-    // 체력바 하이라이트
+
     ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
     ctx.fillRect(bossBarX, bossBarY, (bossBarWidth * bossHealthPercent) / 100, 4);
-    
-    // 체력바 구분선
+
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
     ctx.lineWidth = 1;
     for (let i = 1; i < 4; i++) {
@@ -1403,13 +1294,11 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
       ctx.lineTo(x, bossBarY + bossBarHeight);
       ctx.stroke();
     }
-    
-    // 체력바 테두리
+
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 3;
     ctx.strokeRect(bossBarX, bossBarY, bossBarWidth, bossBarHeight);
-    
-    // 보스 이름 표시 (발광 효과)
+
     ctx.shadowBlur = 10;
     ctx.shadowColor = bossColors.glow;
     ctx.fillStyle = '#ffffff';
@@ -1418,7 +1307,6 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     ctx.fillText('👹 BOSS 👹', bx + boss.width / 2, bossBarY - 8);
     ctx.shadowBlur = 0;
 
-    // 보스 디버프 아이콘 표시
     if (boss.debuffs && boss.debuffs.length > 0) {
       boss.debuffs.forEach((debuff, index) => {
         const iconX = bx + 5 + (index * 22);
@@ -1481,7 +1369,6 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
       });
     }
 
-    // 데미지 텍스트 그리기
     state.damageTexts.forEach((damageText) => {
       ctx.globalAlpha = damageText.opacity;
       
@@ -1604,7 +1491,6 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     } else {
       draw(gameState);
     }
-    // gameStateRef 사용 시: ref만 의존해 플레임마다 ref에서 읽음. 미사용 시: gameState 변경 시에만 그리기.
   }, [gameStateRef ? null : gameState, gameStateRef]);
 
   return (
@@ -1617,5 +1503,4 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
   );
 };
 
-// 메모이제이션으로 불필요한 리렌더링 방지
 export const GameCanvas = memo(GameCanvasComponent);

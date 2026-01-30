@@ -840,11 +840,14 @@ function App() {
               </div>
             </div>
 
-            {/* 하단 조작법 안내 텍스트 */}
+            {/* 하단 조작법 안내: PC는 키보드, 모바일(md 미만)은 터치 버튼 기준 */}
             <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-center pointer-events-none">
-              <div className="bg-black/60 rounded px-3 py-1 text-[10px] text-gray-400">
+              <div className="hidden md:block bg-black/60 rounded px-3 py-1 text-[10px] text-gray-400">
                 A/D: 이동 | Space/W: 점프 | Shift: 회피 | J: 공격 | 1/2/3: 스킬 | ESC:
                 일시정지 | I: 인벤토리 | U: 아티펙트
+              </div>
+              <div className="block md:hidden bg-black/60 rounded px-3 py-1 text-[10px] text-gray-400">
+                ←→ 이동 · ↑ 점프 · 검 공격 · 방패 회피 · ✨ 스킬 · 하단에서 좌우 전환
               </div>
             </div>
 
@@ -874,6 +877,28 @@ function App() {
                   </h2>
                   <p className="text-gray-300 text-sm shrink-0">게임이 일시 정지되었습니다</p>
                   <p className="text-xs text-gray-400 shrink-0">ESC: 계속 | I: 인벤토리</p>
+                  {/* 모바일 전용: 조작 버튼 크기 (md 미만에서만 표시) */}
+                  <div className="block md:hidden flex flex-col gap-1 shrink-0">
+                    <label htmlFor="mobile-button-scale" className="text-sm text-gray-300">
+                      조작 버튼 크기
+                    </label>
+                    <input
+                      id="mobile-button-scale"
+                      type="range"
+                      min={0.8}
+                      max={1.5}
+                      step={0.1}
+                      value={mobileSettings.buttonScale ?? 1}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        handleMobileSettingsChange({ ...mobileSettings, buttonScale: v });
+                      }}
+                      className="w-full accent-blue-500"
+                    />
+                    <span className="text-xs text-gray-500">
+                      {Math.round((mobileSettings.buttonScale ?? 1) * 100)}%
+                    </span>
+                  </div>
                   <div className="flex flex-col gap-2 shrink-0">
                     <Button
                       onClick={() => {

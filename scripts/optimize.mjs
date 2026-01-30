@@ -71,10 +71,11 @@ async function main() {
     console.log('\n  총 크기:', formatBytes(total));
     console.log('\n=== 최적화 팁 ===');
     console.log(`
-  1. 게임 플레이 FPS: GameCanvas에 gameStateRef를 전달하면 RAF로 매 프레임 그리기되어 프레임이 올라갑니다.
-  2. 번들: vite.config.ts의 manualChunks로 react/ui 벤더 분리되어 있습니다.
-  3. 더 쪼개려면: 라우트/모달별 lazy loading (React.lazy) 적용을 고려하세요.
-  4. 프로덕션: npm run build 후 preview로 실제 체감 성능을 확인하세요.
+  1. 프레임 안정화: src/utils/frameStabilizer.ts로 고정 타임스텝(60 tick/s) 적용됨. useGame 게임 루프에서 누적 시간 기반으로 로직 틱만 실행해 고주사율/저사양에서도 동작이 일정합니다.
+  2. 게임 플레이: GameCanvas에 gameStateRef를 전달하면 RAF로 매 프레임 그리기되어 렌더는 디스플레이 주사율에 맞춰지고, 로직은 60 tick/s로 고정됩니다.
+  3. 번들: vite.config.ts의 manualChunks로 react/ui 벤더 분리되어 있습니다.
+  4. 더 쪼개려면: 라우트/모달별 lazy loading (React.lazy) 적용을 고려하세요.
+  5. 프로덕션: npm run build 후 preview로 실제 체감 성능을 확인하세요.
 `);
   } catch (err) {
     if (err.code === 'ENOENT' && err.path === distDir) {

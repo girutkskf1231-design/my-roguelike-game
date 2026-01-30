@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/contexts/ToastContext';
 import { StatisticsContent } from '@/components/StatisticsScreen';
 import { Button } from '@/components/ui/button';
-import { X, User, Camera, LogOut } from 'lucide-react';
+import { X, User, Camera, LogOut, Pencil } from 'lucide-react';
 
 /** 프로필 사진 표시 최대 크기(px). 업로드 제한은 AVATAR_MAX_BYTES(90KB). */
 const MAX_AVATAR_PX = 300;
@@ -32,6 +32,7 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
     ensuredOnce.current = true;
     ensureProfileForCurrentUser();
   }, [user?.id, profile, loading, ensureProfileForCurrentUser]);
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [nicknameError, setNicknameError] = useState<string | null>(null);
   const [nicknameSaving, setNicknameSaving] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -65,9 +66,16 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
     setNicknameSaving(false);
     if (result.ok) {
       await refreshProfile();
+      setIsEditingNickname(false);
     } else {
       setNicknameError(result.error ?? '저장에 실패했습니다.');
     }
+  };
+
+  const handleCancelNicknameEdit = () => {
+    setNickname(profile?.nickname ?? '');
+    setNicknameError(null);
+    setIsEditingNickname(false);
   };
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -180,31 +188,63 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
                 </div>
               </div>
 
-              {/* 닉네임 수정 (리더보드 등재 닉네임도 함께 수정됨) */}
+              {/* 닉네임: 회원가입 시 입력한 닉네임 표시, 수정 시에만 입력창 + 취소/저장 */}
               {!profile && user && (
-                <p className="text-xs text-amber-400/90">프로필을 불러오지 못했습니다. 닉네임을 입력한 뒤 저장해 보세요.</p>
+                <p className="text-xs text-amber-400/90">프로필을 불러오지 못했습니다. 수정 버튼으로 닉네임을 입력한 뒤 저장해 보세요.</p>
               )}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">닉네임 (수정 시 리더보드에 등재된 닉네임도 수정됩니다)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={nickname}
-                    onChange={(e) => { setNickname(e.target.value); setNicknameError(null); }}
-                    placeholder="닉네임"
-                    maxLength={20}
-                    className="flex-1 px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                  <Button
-                    onClick={handleSaveNickname}
-                    disabled={!nicknameDirty || nicknameInvalid || nicknameSaving}
-                  >
-                    {nicknameSaving ? '저장 중...' : '저장'}
-                  </Button>
-                </div>
-                {nicknameError && <p className="text-xs text-red-400 mt-1">{nicknameError}</p>}
-                {nicknameInvalid && !nicknameError && (
-                  <p className="text-xs text-amber-400 mt-1">이모티콘·특수문자 불가, 2자 이상</p>
+                {isEditingNickname ? (
+                  <>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={nickname}
+                        onChange={(e) => { setNickname(e.target.value); setNicknameError(null); }}
+                        placeholder="닉네임"
+                        maxLength={20}
+                        className="flex-1 px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleCancelNicknameEdit}
+                        disabled={nicknameSaving}
+                      >
+                        취소
+                      </Button>
+                      <Button
+                        onClick={handleSaveNickname}
+                        disabled={!nicknameDirty || nicknameInvalid || nicknameSaving}
+                      >
+                        {nicknameSaving ? '저장 중...' : '저장'}
+                      </Button>
+                    </div>
+                    {nicknameError && <p className="text-xs text-red-400 mt-1">{nicknameError}</p>}
+                    {nicknameInvalid && !nicknameError && (
+                      <p className="text-xs text-amber-400 mt-1">이모티콘·특수문자 불가, 2자 이상</p>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-medium min-h-[40px] flex items-center">
+                      {profile?.nickname?.trim() || '닉네임 없음'}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setNickname(profile?.nickname ?? '');
+                        setNicknameError(null);
+                        setIsEditingNickname(true);
+                      }}
+                      className="shrink-0 rounded-lg h-9 px-3 flex items-center gap-1.5"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      수정
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
@@ -221,13 +261,15 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
           {/* 로그아웃 */}
           <section className="pt-2 border-t border-slate-600/50">
             <Button
+              type="button"
               variant="outline"
+              disabled={false}
               onClick={async () => {
                 await signOut();
                 showToast('로그아웃되었습니다.', 'success');
                 (onAfterLogout ?? onClose)();
               }}
-              className="w-full h-12 rounded-xl border-slate-500/50 text-gray-300 hover:bg-slate-800 hover:text-white flex items-center justify-center gap-2"
+              className="w-full h-12 rounded-xl border-slate-500/50 text-gray-300 hover:bg-slate-800 hover:text-white flex items-center justify-center gap-2 cursor-pointer"
             >
               <LogOut className="w-5 h-5" />
               로그아웃

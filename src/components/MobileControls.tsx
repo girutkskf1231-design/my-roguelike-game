@@ -12,9 +12,12 @@ interface MobileControlsProps {
   onLayoutChange?: (settings: MobileSettings) => void;
 }
 
-/** 키보드 이벤트 시뮬레이션 (점프/공격/회피/스킬) */
+/** 키보드 이벤트 시뮬레이션 (점프/공격/회피/스킬). 1회 입력 후 keyup으로 keysPressed 정리 */
 function dispatchKey(key: string) {
   window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  requestAnimationFrame(() => {
+    window.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+  });
 }
 
 export function MobileControls({
