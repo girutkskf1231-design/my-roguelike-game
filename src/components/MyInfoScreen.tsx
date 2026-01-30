@@ -59,6 +59,8 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
     }
     setNicknameError(null);
     setNicknameSaving(true);
+    // 프로필 행이 없을 수 있음(자동 로그인/ensure 실패) → 저장 전 한 번 ensure
+    if (!profile) await ensureProfileForCurrentUser();
     const result = await updateProfileNickname(user.id, n);
     setNicknameSaving(false);
     if (result.ok) {
@@ -179,6 +181,9 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
               </div>
 
               {/* 닉네임 수정 (리더보드 등재 닉네임도 함께 수정됨) */}
+              {!profile && user && (
+                <p className="text-xs text-amber-400/90">프로필을 불러오지 못했습니다. 닉네임을 입력한 뒤 저장해 보세요.</p>
+              )}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">닉네임 (수정 시 리더보드에 등재된 닉네임도 수정됩니다)</label>
                 <div className="flex gap-2">

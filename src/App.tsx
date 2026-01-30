@@ -84,7 +84,7 @@ function App() {
   const [showLogin, setShowLogin] = useState<boolean>(false);
   const [showMyInfo, setShowMyInfo] = useState<boolean>(false);
 
-  const { user, profile } = useAuth();
+  const { user, profile, signIn } = useAuth();
 
   // 메뉴/선택 상태
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
@@ -353,6 +353,7 @@ function App() {
             )}
             {showLogin && (
               <LoginScreen
+                signIn={signIn}
                 onClose={() => setShowLogin(false)}
                 onSuccess={() => {
                   setShowLogin(false);

@@ -1,16 +1,19 @@
 import { useState } from 'react';
-import { supabase, signIn } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
+import type { LoginResult } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { X, Mail, Lock, LogIn } from 'lucide-react';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface LoginScreenProps {
+  /** useAuth().signIn 전달 시 로그인·자동 로그인·내 정보 흐름과 동일한 세션 사용 */
+  signIn: (email: string, password: string) => Promise<LoginResult>;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
-export function LoginScreen({ onClose, onSuccess }: LoginScreenProps) {
+export function LoginScreen({ signIn, onClose, onSuccess }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);

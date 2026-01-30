@@ -2,7 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase, signIn as authSignIn, signOut as authSignOut, getProfile, ensureProfile, type AuthProfile } from '@/lib/supabase';
 
-/** 로그인 상태: 세션·프로필·자동 로그인(세션 유지) */
+/**
+ * 로그인 상태: 세션·프로필·자동 로그인(세션 유지).
+ * - 자동 로그인: onAuthStateChange(INITIAL_SESSION)에서만 초기 세션 적용.
+ * - 로그인: App에서 useAuth().signIn을 LoginScreen에 전달 → 동일 세션으로 내 정보와 연동.
+ * - 내 정보: useAuth()의 profile/ensureProfileForCurrentUser 사용, 프로필 없으면 ensure 후 표시/저장.
+ */
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -31,22 +36,27 @@ export function useAuth() {
     };
 
     const handleSession = async (s: Session | null) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user?.id) {
-        let p = await loadProfile(s.user.id);
-        if (!p) {
-          const fallback =
-            (s.user.user_metadata?.nickname as string | undefined)?.trim() ||
-            (s.user.email ?? '').split('@')[0]?.trim() ||
-            '게스트';
-          await ensureProfile(s.user.id, fallback);
-          await loadProfile(s.user.id);
+      try {
+        setSession(s);
+        setUser(s?.user ?? null);
+        if (s?.user?.id) {
+          let p = await loadProfile(s.user.id);
+          if (!p) {
+            const fallback =
+              (s.user.user_metadata?.nickname as string | undefined)?.trim() ||
+              (s.user.email ?? '').split('@')[0]?.trim() ||
+              '게스트';
+            await ensureProfile(s.user.id, fallback);
+            await loadProfile(s.user.id);
+          }
+        } else {
+          setProfile(null);
         }
-      } else {
+      } catch {
         setProfile(null);
+      } finally {
+        resolveLoading();
       }
-      resolveLoading();
     };
 
     // 자동 로그인: 초기 세션은 onAuthStateChange(INITIAL_SESSION)에서만 적용.
