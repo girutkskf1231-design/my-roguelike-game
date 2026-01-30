@@ -2,6 +2,21 @@
 
 이 프로젝트는 **Supabase**로 로그인·회원가입, 리더보드, 프로필을 사용합니다.
 
+## 로그인/회원가입 설정 체크리스트
+
+| 단계 | 작업 | 완료 |
+|------|------|------|
+| 1 | Supabase 프로젝트 생성 | ☐ |
+| 2 | **Settings → API**에서 Project URL, anon key 확인 | ☐ |
+| 3 | 프로젝트 루트에 `.env` 생성, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` 설정 | ☐ |
+| 4 | **Authentication → Providers**에서 Email 활성화 확인 | ☐ |
+| 5 | `supabase/migrations/` SQL **순서대로** 실행 (profiles, game_scores, avatars 등) | ☐ |
+| 6 | `npm run dev` 재시작 후 메인 메뉴에서 **회원가입** → **로그인** 테스트 | ☐ |
+
+`.env`가 없거나 값이 비어 있으면 **로그인/회원가입**이 비활성화되고, "Supabase가 설정되지 않아..." 메시지가 표시됩니다.
+
+---
+
 ## 1. 프로젝트 생성
 
 1. [Supabase](https://supabase.com) 로그인 후 **New project** 생성
@@ -61,6 +76,7 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ## 5. 동작 확인
 
-- 메인 메뉴에서 **회원가입** → 이메일·닉네임·비밀번호 입력 후 가입
-- **로그인** → 이메일·비밀번호로 로그인
+- 메인 메뉴에서 **회원가입** → 이메일·닉네임·비밀번호 입력 → 닉네임 **중복 확인** 후 가입
+- 가입 완료 시 **로그인하기** 클릭 → **로그인** 모달에서 이메일·비밀번호로 로그인
 - 로그인 후 **내 정보**, 리더보드 점수 제출 등 동작 확인
+- 세션은 **localStorage**에 저장되며, 새로고침 후에도 로그인 상태 유지

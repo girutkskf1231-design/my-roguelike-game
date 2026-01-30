@@ -9,9 +9,11 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface SignUpScreenProps {
   onClose: () => void;
+  /** 가입 성공 후 로그인 화면으로 넘길 때 호출 (예: 로그인하기 클릭) */
+  onSuccess?: () => void;
 }
 
-export function SignUpScreen({ onClose }: SignUpScreenProps) {
+export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
   const [email, setEmail] = useState('');
   const [emailCheckMessage, setEmailCheckMessage] = useState<string | null>(null);
   const [nickname, setNickname] = useState('');
@@ -129,7 +131,21 @@ export function SignUpScreen({ onClose }: SignUpScreenProps) {
             </div>
             <h2 className="text-xl font-bold text-white mb-2">가입 완료</h2>
             <p className="text-slate-400 text-sm mb-6">이메일 인증 링크가 발송되었을 수 있습니다. 로그인 후 이용해 주세요.</p>
-            <Button onClick={onClose} className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500">닫기</Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={onClose}
+                className="flex-1 h-12 rounded-xl border-slate-600 text-slate-300 hover:bg-slate-700/80 hover:text-white"
+              >
+                닫기
+              </Button>
+              <Button
+                onClick={() => { onSuccess?.(); onClose(); }}
+                className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500"
+              >
+                로그인하기
+              </Button>
+            </div>
           </div>
         </div>
       </div>

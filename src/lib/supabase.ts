@@ -5,7 +5,13 @@ try {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   if (typeof supabaseUrl === 'string' && typeof supabaseAnonKey === 'string' && supabaseUrl.length > 0 && supabaseAnonKey.length > 0) {
-    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
   }
 } catch {
   supabaseInstance = null;
@@ -117,6 +123,8 @@ export async function signUp(params: {
   if (!supabase) return { ok: false, error: 'network' };
   try {
     const nickname = params.nickname.trim().slice(0, 50);
+    const available = await checkNicknameAvailable(nickname);
+    if (!available) return { ok: false, error: 'nickname_taken' };
     const { error: authError } = await supabase.auth.signUp({
       email: params.email.trim(),
       password: params.password,

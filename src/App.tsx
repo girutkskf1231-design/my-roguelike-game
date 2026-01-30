@@ -369,7 +369,13 @@ function App() {
               <LeaderboardScreen onClose={() => setShowLeaderboard(false)} />
             )}
             {showSignUp && (
-              <SignUpScreen onClose={() => setShowSignUp(false)} />
+              <SignUpScreen
+                onClose={() => setShowSignUp(false)}
+                onSuccess={() => {
+                  setShowSignUp(false);
+                  setShowLogin(true);
+                }}
+              />
             )}
             {showLogin && (
               <LoginScreen onClose={() => setShowLogin(false)} />
