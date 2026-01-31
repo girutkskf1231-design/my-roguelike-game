@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { supabase, updateProfileNickname, uploadAvatar, checkNicknameAvailable, AVATAR_MAX_BYTES } from '@/lib/supabase';
+import { supabase, updateProfileNickname, uploadAvatar, checkNicknameAvailable, ensureProfile, AVATAR_MAX_BYTES } from '@/lib/supabase';
 import { hasNicknameForbiddenChars } from '@/lib/nicknameBlocklist';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/contexts/ToastContext';
@@ -26,13 +26,21 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
     setNickname(profile?.nickname ?? '');
   }, [profile?.nickname]);
 
+  useEffect(() => {
+    if (user && !loading) {
+      if (profile?.nickname?.trim()) setIsEditingNickname(false);
+      else setIsEditingNickname(true);
+    }
+  }, [user, loading, profile?.nickname]);
+
   // 로그인됐는데 프로필이 없을 때(자동 로그인/로그인 직후 ensure 실패 등) 한 번 프로필 생성 시도
   useEffect(() => {
     if (!user?.id || profile != null || loading || ensuredOnce.current) return;
     ensuredOnce.current = true;
     ensureProfileForCurrentUser();
   }, [user?.id, profile, loading, ensureProfileForCurrentUser]);
-  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const hasNoNickname = !profile?.nickname?.trim();
+  const [isEditingNickname, setIsEditingNickname] = useState(hasNoNickname);
   const [nicknameError, setNicknameError] = useState<string | null>(null);
   const [nicknameSaving, setNicknameSaving] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
@@ -91,6 +99,7 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
     setNicknameError(null);
     setNicknameSaving(true);
     try {
+      if (!profile) await ensureProfile(user.id, n);
       const result = await updateProfileNickname(user.id, n);
       if (result.ok) {
         await refreshProfile();
