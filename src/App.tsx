@@ -20,6 +20,7 @@ import type { MobileSettings } from './lib/supabase';
 import { useAuth } from './hooks/useAuth';
 import { MobileControls } from './components/MobileControls';
 import { Button } from './components/ui/button';
+import { Link } from 'react-router-dom';
 import {
   Crown,
   Heart,
@@ -33,6 +34,7 @@ import {
   Sword,
   Trophy,
   Clock,
+  BookOpen,
 } from 'lucide-react';
 import './App.css';
 
@@ -305,6 +307,15 @@ function App() {
                   <Trophy className="w-5 h-5 mr-2" />
                   🏆 리더보드
                 </Button>
+                <Link to="/compendium" className="flex-1">
+                  <Button
+                    variant="outline"
+                    className="w-full h-12 text-base font-bold border-2 border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/30"
+                  >
+                    <BookOpen className="w-5 h-5 mr-2" />
+                    ⚔️ 무기 도감
+                  </Button>
+                </Link>
                 {user ? (
                   <>
                     <Button

@@ -30,6 +30,15 @@ import { getClassById } from '../data/classes';
 import { fuseWeapons } from '../data/weaponFusions';
 import { initGameSession, updateStatisticsOnGameEnd } from '../utils/statistics';
 import { getLogicSteps, isTabVisible, createFpsCounter, getAdaptiveMaxSteps } from '../utils/frameStabilizer';
+import {
+  getDamageMultiplier,
+  getArmorPenetration,
+  getDebuffChance,
+  getDebuffDurationMultiplier,
+  getExplosionExtraDamage,
+  applyWeaponOnHitEffects,
+  getKnockbackForce,
+} from '../utils/weaponEffects';
 
 const FIXED_TIMESTEP_SEC = 1 / 60;
 const MAX_STEPS_PER_FRAME = 5;
@@ -846,14 +855,22 @@ export const useGame = () => {
           if (weapon.id === 'katana') {
             critChance += 30 + (prev.player.stats.agility * 0.5);
           }
+          if (weapon.id === 'muramasa') {
+            critChance += 30;
+          }
+          if (weapon.id === 'lance_of_destiny') critChance += 15;
+          if (weapon.id === 'dragon_spear_katana') critChance += 25;
+          if (weapon.id === 'artemis_double_bow') critChance += 20;
           const isCritical = Math.random() * 100 < critChance;
-          let finalDamage = isCritical ? baseDamage * 2 : baseDamage;
+          const critMultiplier = weapon.id === 'muramasa' ? 3 : 2;
+          let finalDamage = isCritical ? baseDamage * critMultiplier : baseDamage;
           let attackDamage = isBerserker ? finalDamage * 2 : finalDamage;
           if (prev.player.activeSkillEffects.includes('last_stand') && prev.player.health <= prev.player.maxHealth * 0.3) {
             attackDamage *= 2;
           }
-          if (weapon.id === 'axe') {
-            attackDamage = Math.floor(attackDamage * 1.2);
+          const armorPen = getArmorPenetration(weapon.id);
+          if (armorPen > 0) {
+            attackDamage = Math.floor(attackDamage * (1 + armorPen));
           }
           let weaponDamage = attackDamage;
           let weaponElement = weapon.element;
@@ -900,17 +917,20 @@ export const useGame = () => {
           if (weapon.type === 'melee') {
             let projWidth = weapon.range;
             let projHeight = 10;
-            if (weapon.id === 'hammer' || weapon.id === 'greatsword') {
+            if (['hammer', 'greatsword', 'thunder_hammer', 'titan_greatsword', 'titan_crusher', 'enchanted_hammer'].includes(weapon.id)) {
               projWidth = weapon.range * 1.5;
               projHeight = 25;
-            } else if (weapon.id === 'spear') {
+            } else if (['spear', 'lance_of_destiny', 'dragon_spear_katana'].includes(weapon.id)) {
               projWidth = weapon.range;
               projHeight = 6;
-            } else if (weapon.id === 'katana') {
+            } else if (['katana', 'muramasa'].includes(weapon.id)) {
               projWidth = weapon.range * 1.2;
               projHeight = 12;
             }
-            const attackCount = weapon.id === 'dual_sword' ? 2 : 1;
+            let attackCount = 1;
+            if (weapon.id === 'dual_sword' || weapon.id === 'shadow_dual_sword') attackCount = 2;
+            if (weapon.id === 'demon_twin_blades') attackCount = 4;
+            if (weapon.id === 'shadow_dual_sword' && Math.random() < 0.5) attackCount += 1;
             
             for (let i = 0; i < attackCount; i++) {
               setTimeout(() => {
@@ -944,7 +964,8 @@ export const useGame = () => {
                 }));
               }, i * 100);
             }
-            if (weapon.id !== 'dual_sword') {
+            const useSetTimeoutForMultiHit = ['dual_sword', 'shadow_dual_sword', 'demon_twin_blades'].includes(weapon.id);
+            if (!useSetTimeoutForMultiHit) {
               newProjectiles.push({
                 position: {
                   x: prev.player.position.x + (prev.player.facingRight ? prev.player.width : -projWidth),
@@ -965,6 +986,31 @@ export const useGame = () => {
                 lifetime: weapon.projectileLifetime || 30,
                 createdAt: currentTime,
                 shape: weapon.projectileShape || 'default',
+                weaponId: weapon.id,
+              });
+            }
+            // 검궁사: 근접 공격 시 화살 자동 발사
+            if (weapon.id === 'sword_bow_hybrid' && weapon.projectileCount && weapon.projectileSpeed) {
+              const speed = weapon.projectileSpeed;
+              newProjectiles.push({
+                position: {
+                  x: prev.player.position.x + (prev.player.facingRight ? prev.player.width : 0),
+                  y: prev.player.position.y + prev.player.height / 2,
+                },
+                velocity: {
+                  x: prev.player.facingRight ? speed : -speed,
+                  y: 0,
+                },
+                width: 20,
+                height: 8,
+                damage: weaponDamage,
+                fromPlayer: true,
+                isCritical,
+                element: weaponElement,
+                elementalDamage: weaponElementalDamage,
+                piercing: weapon.piercing,
+                lifetime: weapon.projectileLifetime || 90,
+                createdAt: currentTime,
                 weaponId: weapon.id,
               });
             }
@@ -1178,40 +1224,60 @@ export const useGame = () => {
         });
         updatedProjectiles = updatedProjectiles.filter((proj) => {
           if (proj.fromPlayer && checkCollision(proj, newBoss)) {
-            const holyBonus = proj.weaponId === 'holy_staff' ? 1.5 : 1;
-            newBoss.health -= proj.damage * holyBonus;
-            
-            // 속성 피해 적용
+            const dmgMultiplier = getDamageMultiplier(proj.weaponId, true);
+            const physicalDmg = Math.floor(proj.damage * dmgMultiplier);
+            const elementalDmg = proj.element && proj.elementalDamage
+              ? Math.floor(proj.elementalDamage * dmgMultiplier)
+              : 0;
+            const explosionExtra = getExplosionExtraDamage(proj.weaponId, elementalDmg);
+            const totalDmg = physicalDmg + elementalDmg + explosionExtra;
+            newBoss.health -= totalDmg;
+
+            // 넉백 (titan_greatsword)
+            const knockback = getKnockbackForce(proj.weaponId, newPlayer.facingRight);
+            if (knockback) {
+              newBoss.velocity.x = knockback.x;
+              newBoss.velocity.y = knockback.y;
+            }
+
+            // on-hit 효과 (회복, 흡혈, 출혈, 스턴)
+            const onHitResult = applyWeaponOnHitEffects(
+              proj.weaponId,
+              physicalDmg,
+              elementalDmg,
+              newBoss,
+              newPlayer,
+              newDamageTexts
+            );
+            newBoss = onHitResult.boss;
+            newPlayer = onHitResult.player;
+
+            // 속성 디버프 적용
             if (proj.element && proj.elementalDamage) {
-              const elementalDmg = proj.elementalDamage * holyBonus;
-              newBoss.health -= elementalDmg;
-              
-              // 지팡이(magic 무기)의 경우 30% 확률로 디버프 적용
-              const shouldApplyDebuff = Math.random() < 0.3;
+              const debuffChance = getDebuffChance(proj.weaponId);
+              const shouldApplyDebuff = Math.random() < debuffChance;
               
               if (shouldApplyDebuff) {
-                // 속성 디버프 추가
+                const durationMultiplier = getDebuffDurationMultiplier(proj.weaponId);
+                const baseDuration = Math.floor(300 * durationMultiplier);
                 const existingDebuff = newBoss.debuffs.find(d => d.type === proj.element);
                 if (existingDebuff) {
-                  // 기존 디버프 갱신
-                  existingDebuff.duration = 300; // 5초
+                  existingDebuff.duration = baseDuration;
                 } else {
-                  // 새로운 디버프 추가
                   const newDebuff: Debuff = {
-                    type: proj.element,
-                    duration: 300, // 5초 (60fps 기준)
+                    type: proj.element!,
+                    duration: baseDuration,
                   };
-                  
                   switch (proj.element) {
                     case 'fire':
-                      newDebuff.tickDamage = Math.floor(elementalDmg / 10); // 초당 틱 피해
+                      newDebuff.tickDamage = Math.floor(elementalDmg / 10);
                       break;
                     case 'ice':
-                      newDebuff.slowAmount = 0.5; // 50% 속도 감소
+                      newDebuff.slowAmount = 0.5;
                       break;
                     case 'lightning':
                       newDebuff.stunned = true;
-                      newDebuff.duration = 120; // 2초 스턴
+                      newDebuff.duration = Math.floor(120 * durationMultiplier);
                       break;
                     case 'poison':
                       newDebuff.tickDamage = Math.floor(elementalDmg / 5);
@@ -1220,12 +1286,10 @@ export const useGame = () => {
                       newDebuff.tickDamage = Math.floor(elementalDmg / 8);
                       break;
                   }
-                  
                   newBoss.debuffs.push(newDebuff);
                 }
               }
 
-              // 암흑 지팡이: 모든 디버프 지속시간 증가
               if (proj.weaponId === 'dark_staff' && newBoss.debuffs.length > 0) {
                 newBoss.debuffs = newBoss.debuffs.map((d) => ({
                   ...d,
@@ -1233,17 +1297,15 @@ export const useGame = () => {
                 }));
               }
             }
-            
-            // 보스 데미지 텍스트 생성
-            // 일반 데미지가 있으면 표시
-            if (proj.damage > 0) {
+
+            if (physicalDmg > 0) {
               newDamageTexts.push({
                 id: `${Date.now()}-${Math.random()}-physical`,
                 position: {
                   x: newBoss.position.x + newBoss.width / 2,
                   y: newBoss.position.y,
                 },
-                damage: Math.floor(proj.damage * holyBonus),
+                damage: physicalDmg,
                 isPlayerDamage: false,
                 opacity: 1,
                 offsetY: 0,
@@ -1251,16 +1313,29 @@ export const useGame = () => {
                 element: 'physical',
               });
             }
-            
-            // 속성 데미지가 있으면 따로 표시
-            if (proj.element && proj.elementalDamage && proj.elementalDamage > 0) {
+            if (elementalDmg > 0) {
               newDamageTexts.push({
                 id: `${Date.now()}-${Math.random()}-elemental`,
                 position: {
                   x: newBoss.position.x + newBoss.width / 2 + (Math.random() * 20 - 10),
                   y: newBoss.position.y + (Math.random() * 10 - 5),
                 },
-                damage: Math.floor(proj.elementalDamage * holyBonus),
+                damage: elementalDmg,
+                isPlayerDamage: false,
+                opacity: 1,
+                offsetY: 0,
+                isCritical: false,
+                element: proj.element!,
+              });
+            }
+            if (explosionExtra > 0) {
+              newDamageTexts.push({
+                id: `${Date.now()}-${Math.random()}-explosion`,
+                position: {
+                  x: newBoss.position.x + newBoss.width / 2 + (Math.random() * 20 - 10),
+                  y: newBoss.position.y + (Math.random() * 10 - 5),
+                },
+                damage: explosionExtra,
                 isPlayerDamage: false,
                 opacity: 1,
                 offsetY: 0,

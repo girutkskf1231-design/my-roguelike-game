@@ -106,17 +106,14 @@ function isAbortError(e: unknown): boolean {
   return e instanceof Error && (e.name === 'AbortError' || e.message?.includes('aborted'));
 }
 
-/** 닉네임 사용 가능 여부 (중복·공백 제외) - RPC nickname_available 호출. abortSignal로 AbortError 방지 */
+/** 닉네임 사용 가능 여부 (중복·공백 제외) - RPC nickname_available 호출 */
 export async function checkNicknameAvailable(nickname: string): Promise<NicknameCheckResult> {
   if (!supabase) return { available: false, error: '네트워크 오류' };
-  const ac = new AbortController();
   try {
     const n = String(nickname).trim();
     if (!n) return { available: false };
     if (n.length < 2) return { available: false, error: '닉네임은 2자 이상 입력해 주세요.' };
-    const { data, error } = await supabase
-      .rpc('nickname_available', { n })
-      .abortSignal(ac.signal);
+    const { data, error } = await supabase.rpc('nickname_available', { n });
     if (error) return { available: false, error: '닉네임 확인 중 오류가 발생했습니다.' };
     return { available: data === true };
   } catch (e) {
@@ -277,19 +274,15 @@ export interface UpdateProfileResult {
 /** 프로필 닉네임 수정 (DB 트리거가 game_scores.player_name 동기화). 행이 없으면 INSERT, 있으면 UPDATE. */
 export async function updateProfileNickname(userId: string, nickname: string): Promise<UpdateProfileResult> {
   if (!supabase) return { ok: false, error: '네트워크 오류' };
-  // 우리가 제어하는 signal(절대 abort 안 함) → React StrictMode/탭 전환으로 인한 외부 abort 방지
-  const ac = new AbortController();
   try {
     const n = String(nickname).trim().slice(0, 50);
     if (!n || n.length < 2) return { ok: false, error: '닉네임은 2자 이상 입력해 주세요.' };
 
-    // 1) UPDATE 시도 (행이 있으면 갱신). abortSignal로 React StrictMode에 의한 외부 abort 방지
     const { data: updated, error: updateError } = await supabase
       .from(PROFILES_TABLE)
       .update({ nickname: n })
       .eq('id', userId)
       .select('id')
-      .abortSignal(ac.signal)
       .maybeSingle();
 
     if (updateError) {
@@ -476,6 +469,40 @@ export async function deletePlayerInventory(userId: string): Promise<UpdateProfi
   } catch (err) {
     console.error('인벤토리 삭제 예외:', err);
     return { ok: false, error: '인벤토리 삭제에 실패했습니다.' };
+  }
+}
+
+// --- 무기 도감 ---
+
+const WEAPON_COMPENDIUM_TABLE = 'weapon_compendium';
+
+export interface WeaponCompendiumEntry {
+  id: string;
+  name: string;
+  description: string;
+  weapon_type: string;
+  category: 'melee' | 'ranged' | 'elemental' | 'other';
+  special_effect: string;
+  fusion_formula: string | null;
+  sort_order: number;
+}
+
+/** 무기 도감 조회 (카테고리별) */
+export async function fetchWeaponCompendium(category?: string): Promise<WeaponCompendiumEntry[]> {
+  if (!supabase) return [];
+  try {
+    let query = supabase
+      .from(WEAPON_COMPENDIUM_TABLE)
+      .select('id, name, description, weapon_type, category, special_effect, fusion_formula, sort_order')
+      .order('sort_order', { ascending: true });
+    if (category) {
+      query = query.eq('category', category);
+    }
+    const { data, error } = await query;
+    if (error) return [];
+    return (data ?? []) as WeaponCompendiumEntry[];
+  } catch {
+    return [];
   }
 }
 
