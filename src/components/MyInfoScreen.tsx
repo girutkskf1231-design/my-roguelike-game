@@ -83,15 +83,14 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
       setIsEditingNickname(false);
       return;
     }
-    const available = await checkNicknameAvailable(n);
-    if (!available) {
-      setNicknameError('이미 사용 중인 닉네임입니다.');
+    const check = await checkNicknameAvailable(n);
+    if (!check.available) {
+      setNicknameError(check.error ?? '이미 사용 중인 닉네임입니다.');
       return;
     }
     setNicknameError(null);
     setNicknameSaving(true);
     try {
-      if (!profile) await ensureProfileForCurrentUser();
       const result = await updateProfileNickname(user.id, n);
       if (result.ok) {
         await refreshProfile();
@@ -260,31 +259,32 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
                 <label className="text-xs text-gray-400 block mb-1">닉네임 (수정 시 리더보드에 등재된 닉네임도 수정됩니다)</label>
                 {isEditingNickname ? (
                   <>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2 items-center">
                       <input
                         type="text"
                         value={nickname}
                         onChange={(e) => { setNickname(e.target.value); setNicknameError(null); }}
                         placeholder="닉네임"
                         maxLength={20}
-                        className="flex-1 px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="flex-1 min-w-[120px] px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
                       />
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={handleCancelNicknameEdit}
-                        disabled={nicknameSaving}
-                      >
-                        취소
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={handleSaveNickname}
-                        disabled={!nicknameDirty || nicknameInvalid || nicknameSaving}
-                        className="ml-2"
-                      >
-                        {nicknameSaving ? '저장 중...' : '저장'}
-                      </Button>
+                      <div className="flex gap-3 shrink-0">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={handleCancelNicknameEdit}
+                          disabled={nicknameSaving}
+                        >
+                          취소
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={handleSaveNickname}
+                          disabled={!nicknameDirty || nicknameInvalid || nicknameSaving}
+                        >
+                          {nicknameSaving ? '저장 중...' : '저장'}
+                        </Button>
+                      </div>
                     </div>
                     {nicknameError && <p className="text-xs text-red-400 mt-1">{nicknameError}</p>}
                     {nicknameInvalid && !nicknameError && (

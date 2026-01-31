@@ -95,17 +95,23 @@ export async function submitScoreToLeaderboard(params: {
 
 // --- 회원가입 / 인증 ---
 
+export interface NicknameCheckResult {
+  available: boolean;
+  /** RPC/네트워크 오류 시 메시지 (available이 false인데 error가 있으면 중복이 아닌 오류) */
+  error?: string;
+}
+
 /** 닉네임 사용 가능 여부 (중복·공백 제외) - RPC nickname_available 호출 */
-export async function checkNicknameAvailable(nickname: string): Promise<boolean> {
-  if (!supabase) return false;
+export async function checkNicknameAvailable(nickname: string): Promise<NicknameCheckResult> {
+  if (!supabase) return { available: false, error: '네트워크 오류' };
   try {
     const n = String(nickname).trim();
-    if (!n) return false;
+    if (!n) return { available: false };
     const { data, error } = await supabase.rpc('nickname_available', { n });
-    if (error) return false;
-    return data === true;
+    if (error) return { available: false, error: '닉네임 확인 중 오류가 발생했습니다.' };
+    return { available: data === true };
   } catch {
-    return false;
+    return { available: false, error: '닉네임 확인 중 오류가 발생했습니다.' };
   }
 }
 
@@ -123,8 +129,8 @@ export async function signUp(params: {
   if (!supabase) return { ok: false, error: 'network' };
   try {
     const nickname = params.nickname.trim().slice(0, 50);
-    const available = await checkNicknameAvailable(nickname);
-    if (!available) return { ok: false, error: 'nickname_taken' };
+    const check = await checkNicknameAvailable(nickname);
+    if (!check.available) return { ok: false, error: check.error ?? 'nickname_taken' };
     const { error: authError } = await supabase.auth.signUp({
       email: params.email.trim(),
       password: params.password,

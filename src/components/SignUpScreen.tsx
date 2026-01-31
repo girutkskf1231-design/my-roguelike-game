@@ -59,8 +59,8 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
       return;
     }
     setNicknameCheckMessage('checking');
-    const available = await checkNicknameAvailable(n);
-    setNicknameCheckMessage(available ? 'available' : 'taken');
+    const check = await checkNicknameAvailable(n);
+    setNicknameCheckMessage(check.available ? 'available' : 'taken');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
