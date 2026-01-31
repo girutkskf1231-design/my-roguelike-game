@@ -100,78 +100,81 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({
   return (
     <div className={embedded ? 'h-full w-full flex flex-col overflow-hidden bg-slate-900' : 'fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-sm'}>
       <div className={embedded ? 'flex-1 min-h-0 flex flex-col overflow-hidden p-2' : 'max-w-7xl w-full h-[90vh] p-4 flex flex-col'}>
-        {/* 헤더 */}
-        <div className="flex justify-between items-center mb-4 bg-gradient-to-r from-slate-900/80 to-blue-900/80 rounded-lg p-4 border-2 border-slate-600">
-          <div>
-            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-              <Package className="w-8 h-8 text-blue-400" />
+        {/* 헤더: 섹션 구분을 위해 하단 여백·구분선 적용 */}
+        <div className={`flex justify-between items-center bg-gradient-to-r from-slate-900/80 to-blue-900/80 rounded-lg border-2 border-slate-600 shrink-0 ${
+          embedded ? 'p-3 mb-3 border-b-slate-500' : 'p-4 mb-4'
+        }`}>
+          <div className="min-w-0 flex-1">
+            <h1 className={`font-bold text-white flex items-center gap-2 ${embedded ? 'text-xl' : 'text-3xl'}`}>
+              <Package className={embedded ? 'w-6 h-6' : 'w-8 h-8'} />
               무기 저장소
             </h1>
-            <p className="text-gray-300 text-sm mt-1">
-              💼 보유 무기: {allWeapons.length}개 | ⚔️ 장착: {player.weapon.name}
+            <p className={`text-gray-300 mt-1 ${embedded ? 'text-xs' : 'text-sm'}`}>
+              💼 보유 {allWeapons.length}개 · ⚔️ 장착: {player.weapon.name}
               {player.weapon.upgradeLevel ? ` +${player.weapon.upgradeLevel}` : ''}
             </p>
             <p className="text-blue-400 text-xs mt-0.5 flex items-center gap-1">
-              <span className="text-lg">♾️</span>
+              <span>♾️</span>
               <span>무제한 저장 가능</span>
             </p>
           </div>
           <Button
             onClick={onClose}
-            className="bg-red-600 hover:bg-red-700 h-10 w-10 p-0"
+            className="bg-red-600 hover:bg-red-700 h-10 w-10 p-0 shrink-0 ml-2"
           >
             <X className="w-5 h-5" />
           </Button>
         </div>
 
-        {/* 작업장 메뉴 */}
-        <div className="mb-4">
-          <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-600 mb-3">
+        {/* 작업장 메뉴: embedded에서는 2열로 정리해 가독성 확보 */}
+        <div className={embedded ? 'mb-3' : 'mb-4'}>
+          <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-600">
             <div className="text-white font-bold text-sm mb-2 flex items-center gap-2">
               🏭 작업장
             </div>
-            <div className="grid grid-cols-4 gap-3">
+            <div className={`grid gap-2 ${embedded ? 'grid-cols-2' : 'grid-cols-4 gap-3'}`}>
               <Button
                 onClick={onOpenUpgrade}
-                className="bg-gradient-to-br from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 h-20 flex flex-col items-center justify-center gap-1 border-2 border-yellow-400 shadow-lg"
+                className={`bg-gradient-to-br from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 flex flex-col items-center justify-center gap-0.5 border-2 border-yellow-400 shadow-lg ${embedded ? 'h-14 py-2' : 'h-20 gap-1'}`}
               >
-                <TrendingUp className="w-8 h-8" />
-                <span className="text-lg font-bold">강화소</span>
-                <span className="text-xs opacity-80">무기 강화</span>
+                <TrendingUp className={embedded ? 'w-5 h-5' : 'w-8 h-8'} />
+                <span className={embedded ? 'text-sm font-bold' : 'text-lg font-bold'}>강화소</span>
+                {!embedded && <span className="text-xs opacity-80">무기 강화</span>}
               </Button>
               <Button
                 onClick={onOpenEvolution}
-                className="bg-gradient-to-br from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 h-20 flex flex-col items-center justify-center gap-1 border-2 border-pink-400 shadow-lg"
+                className={`bg-gradient-to-br from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 flex flex-col items-center justify-center gap-0.5 border-2 border-pink-400 shadow-lg ${embedded ? 'h-14 py-2' : 'h-20 gap-1'}`}
               >
-                <Sparkles className="w-8 h-8 animate-pulse" />
-                <span className="text-lg font-bold">진화소</span>
-                <span className="text-xs opacity-80">무기 진화</span>
+                <Sparkles className={`${embedded ? 'w-5 h-5' : 'w-8 h-8'} animate-pulse`} />
+                <span className={embedded ? 'text-sm font-bold' : 'text-lg font-bold'}>진화소</span>
+                {!embedded && <span className="text-xs opacity-80">무기 진화</span>}
               </Button>
               <Button
                 onClick={onOpenFusion}
-                className="bg-gradient-to-br from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 h-20 flex flex-col items-center justify-center gap-1 border-2 border-cyan-400 shadow-lg"
+                className={`bg-gradient-to-br from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 flex flex-col items-center justify-center gap-0.5 border-2 border-cyan-400 shadow-lg ${embedded ? 'h-14 py-2' : 'h-20 gap-1'}`}
               >
-                <Zap className="w-8 h-8" />
-                <span className="text-lg font-bold">합성소</span>
-                <span className="text-xs opacity-80">무기 합성</span>
+                <Zap className={embedded ? 'w-5 h-5' : 'w-8 h-8'} />
+                <span className={embedded ? 'text-sm font-bold' : 'text-lg font-bold'}>합성소</span>
+                {!embedded && <span className="text-xs opacity-80">무기 합성</span>}
               </Button>
               {onOpenArtifacts && (
                 <Button
                   onClick={onOpenArtifacts}
-                  className="bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 h-20 flex flex-col items-center justify-center gap-1 border-2 border-purple-400 shadow-lg"
+                  className={`bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 flex flex-col items-center justify-center gap-0.5 border-2 border-purple-400 shadow-lg ${embedded ? 'h-14 py-2' : 'h-20 gap-1'}`}
                 >
-                  <Gem className="w-8 h-8" />
-                  <span className="text-lg font-bold">아티펙트</span>
-                  <span className="text-xs opacity-80">장착 관리</span>
+                  <Gem className={embedded ? 'w-5 h-5' : 'w-8 h-8'} />
+                  <span className={embedded ? 'text-sm font-bold' : 'text-lg font-bold'}>아티펙트</span>
+                  {!embedded && <span className="text-xs opacity-80">장착 관리</span>}
                 </Button>
               )}
             </div>
           </div>
         </div>
 
-        <div className="flex gap-4 flex-1 overflow-hidden">
-          {/* 왼쪽: 무기 목록 */}
-          <div className="flex-1 overflow-hidden flex flex-col">
+        {/* embedded: 세로 배치로 380px에서 오버플로우 방지 / 전체 화면: 가로 배치 */}
+        <div className={`flex flex-1 min-h-0 overflow-hidden ${embedded ? 'flex-col gap-3' : 'flex-row gap-4'}`}>
+          {/* 무기 목록 */}
+          <div className={`flex flex-col overflow-hidden ${embedded ? 'flex-1 min-h-0' : 'flex-1'}`}>
             {/* 타입 탭 */}
             <div className="mb-3 flex gap-2">
               <Button
@@ -274,7 +277,7 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-5 gap-3">
+                <div className={`grid gap-2 ${embedded ? 'grid-cols-2' : 'grid-cols-5 gap-3'}`}>
               {filteredWeapons.map((weapon, index) => {
                 const equipped = isEquipped(weapon);
                 const selected = selectedWeapon?.id === weapon.id && 
@@ -345,8 +348,10 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({
             </div>
           </div>
 
-          {/* 오른쪽: 선택된 무기 상세 정보 */}
-          <div className="w-96 bg-gradient-to-b from-slate-900/90 to-blue-900/30 rounded-lg p-6 border-2 border-blue-600">
+          {/* 오른쪽(또는 아래): 선택된 무기 상세 정보 — embedded에서는 전체 너비 */}
+          <div className={`bg-gradient-to-b from-slate-900/90 to-blue-900/30 rounded-lg border-2 border-blue-600 shrink-0 overflow-y-auto ${
+            embedded ? 'w-full p-4 max-h-[45%]' : 'w-96 p-6'
+          }`}>
             {selectedWeapon ? (
               <div className="space-y-4">
                 <div className="text-center border-b-2 border-blue-600 pb-4">
