@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Zap, Sparkles } from 'lucide-react';
+import { X, Zap, Sparkles, ArrowLeft } from 'lucide-react';
 import type { Weapon, Player } from '../types/game';
 import { canFuseWeapons, fuseWeapons, FUSION_RECIPES } from '../data/weaponFusions';
 import { Button } from './ui/button';
@@ -9,6 +9,7 @@ interface FusionPageProps {
   player: Player;
   onClose: () => void;
   onFuseWeapons: (weapon1: Weapon, weapon2: Weapon) => void;
+  onBackToInventory?: () => void;
   embedded?: boolean;
 }
 
@@ -16,6 +17,7 @@ const FusionPage: React.FC<FusionPageProps> = ({
   player,
   onClose,
   onFuseWeapons,
+  onBackToInventory,
   embedded = false,
 }) => {
   const [firstWeapon, setFirstWeapon] = useState<Weapon | null>(null);
@@ -133,24 +135,36 @@ const FusionPage: React.FC<FusionPageProps> = ({
               ⚗️ 두 개의 무기를 선택하고 합성하세요
             </p>
           </div>
-          <Button
-            onClick={onClose}
-            className="bg-red-600 hover:bg-red-700 h-10 w-10 p-0"
-          >
-            <X className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onBackToInventory && (
+              <Button
+                onClick={onBackToInventory}
+                variant="outline"
+                className="bg-slate-700 hover:bg-slate-600 border-slate-500 h-10 px-3"
+              >
+                <ArrowLeft className="w-5 h-5 mr-1" />
+                뒤로가기
+              </Button>
+            )}
+            <Button
+              onClick={onClose}
+              className="bg-red-600 hover:bg-red-700 h-10 w-10 p-0"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
 
         {/* 선택 상태 표시 */}
         {firstWeapon && (
           <div className="mb-3 p-3 bg-cyan-900/50 border-2 border-cyan-500 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 min-w-0">
                 {/* 첫 번째 무기 */}
-                <div className="flex items-center gap-2">
-                  <div className="text-2xl">{firstWeapon.name.split(' ')[0]}</div>
-                  <div className="text-cyan-400 font-bold text-sm">
-                    {firstWeapon.name.split(' ').slice(1).join(' ')}
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="text-2xl shrink-0">{firstWeapon.name.split(' ')[0]}</div>
+                  <div className="text-cyan-400 font-bold text-sm truncate">
+                    {firstWeapon.name.includes(' ') ? firstWeapon.name.split(' ').slice(1).join(' ') : firstWeapon.name}
                   </div>
                 </div>
 
@@ -158,10 +172,10 @@ const FusionPage: React.FC<FusionPageProps> = ({
                   <>
                     <div className="text-3xl text-cyan-400 animate-pulse">+</div>
                     {/* 두 번째 무기 */}
-                    <div className="flex items-center gap-2">
-                      <div className="text-2xl">{secondWeapon.name.split(' ')[0]}</div>
-                      <div className="text-cyan-400 font-bold text-sm">
-                        {secondWeapon.name.split(' ').slice(1).join(' ')}
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="text-2xl shrink-0">{secondWeapon.name.split(' ')[0]}</div>
+                      <div className="text-cyan-400 font-bold text-sm truncate">
+                        {secondWeapon.name.includes(' ') ? secondWeapon.name.split(' ').slice(1).join(' ') : secondWeapon.name}
                       </div>
                     </div>
                     <div className="text-3xl text-cyan-400 animate-pulse">=</div>
@@ -213,8 +227,8 @@ const FusionPage: React.FC<FusionPageProps> = ({
                     className={`p-3 cursor-pointer transition-all ${getWeaponColor(weapon)} ${
                       !selectable ? 'opacity-30 cursor-not-allowed' : ''
                     } ${equipped ? 'ring-2 ring-green-500' : ''} ${
-                      isFirst ? 'ring-3 ring-cyan-500 scale-105' : ''
-                    } ${isSecond ? 'ring-3 ring-blue-500 scale-105' : ''} 
+                      isFirst ? 'ring-4 ring-cyan-500 scale-105' : ''
+                    } ${isSecond ? 'ring-4 ring-blue-500 scale-105' : ''} 
                     hover:scale-105 hover:shadow-xl border-2`}
                     onClick={() => selectable && handleWeaponClick(weapon)}
                   >
@@ -242,7 +256,7 @@ const FusionPage: React.FC<FusionPageProps> = ({
                       )}
                       <div className="text-2xl mb-1">{weapon.name.split(' ')[0]}</div>
                       <div className="text-xs font-bold text-white mb-1 truncate">
-                        {weapon.name.split(' ').slice(1).join(' ')}
+                        {weapon.name.includes(' ') ? weapon.name.split(' ').slice(1).join(' ') : weapon.name}
                       </div>
                       <div className="space-y-0.5 text-[10px]">
                         <div className="text-gray-300 flex justify-center gap-2">
@@ -287,8 +301,8 @@ const FusionPage: React.FC<FusionPageProps> = ({
                     <div className="text-center">
                       <div className="text-cyan-400 text-xs mb-2">재료 1</div>
                       <div className="text-2xl mb-1">{firstWeapon.name.split(' ')[0]}</div>
-                      <div className="text-xs font-bold text-white mb-2">
-                        {firstWeapon.name.split(' ').slice(1).join(' ')}
+                      <div className="text-xs font-bold text-white mb-2 truncate">
+                        {firstWeapon.name.includes(' ') ? firstWeapon.name.split(' ').slice(1).join(' ') : firstWeapon.name}
                       </div>
                     </div>
                   </div>
@@ -297,8 +311,8 @@ const FusionPage: React.FC<FusionPageProps> = ({
                     <div className="text-center">
                       <div className="text-blue-400 text-xs mb-2">재료 2</div>
                       <div className="text-2xl mb-1">{secondWeapon.name.split(' ')[0]}</div>
-                      <div className="text-xs font-bold text-white mb-2">
-                        {secondWeapon.name.split(' ').slice(1).join(' ')}
+                      <div className="text-xs font-bold text-white mb-2 truncate">
+                        {secondWeapon.name.includes(' ') ? secondWeapon.name.split(' ').slice(1).join(' ') : secondWeapon.name}
                       </div>
                     </div>
                   </div>

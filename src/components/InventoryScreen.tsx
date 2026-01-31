@@ -109,7 +109,7 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({
               <Package className={embedded ? 'w-6 h-6' : 'w-8 h-8'} />
               무기 저장소
             </h1>
-            <p className={`text-gray-300 mt-1 ${embedded ? 'text-xs' : 'text-sm'}`}>
+            <p className={`text-gray-300 mt-1 break-words ${embedded ? 'text-xs' : 'text-sm'}`}>
               💼 보유 {allWeapons.length}개 · ⚔️ 장착: {player.weapon.name}
               {player.weapon.upgradeLevel ? ` +${player.weapon.upgradeLevel}` : ''}
             </p>
@@ -269,6 +269,7 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({
                     {selectedTab === 'ranged' && <Target className="w-16 h-16 mx-auto mb-3 opacity-30" />}
                     {selectedTab === 'magic' && <Wand2 className="w-16 h-16 mx-auto mb-3 opacity-30" />}
                     <p className="text-lg font-bold">
+                      {selectedTab === 'all' && '보유 무기가 없습니다'}
                       {selectedTab === 'melee' && '근접 무기가 없습니다'}
                       {selectedTab === 'ranged' && '원거리 무기가 없습니다'}
                       {selectedTab === 'magic' && '마법 무기가 없습니다'}
@@ -290,7 +291,7 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({
                     key={`${weapon.id}-${weapon.upgradeLevel || 0}-${index}`}
                     className={`p-3 cursor-pointer transition-all ${getWeaponColor(weapon)} ${
                       equipped ? 'ring-2 ring-green-500' : ''
-                    } ${selected ? 'ring-3 ring-blue-500 scale-105' : ''} 
+                    } ${selected ? 'ring-4 ring-blue-500 scale-105' : ''} 
                     hover:scale-105 hover:shadow-xl border-2`}
                     onClick={(e) => handleWeaponClick(weapon, e)}
                   >
@@ -304,9 +305,9 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({
                       )}
                       {/* 무기 아이콘 (이모지) */}
                       <div className="text-3xl mb-2">{weapon.name.split(' ')[0]}</div>
-                      {/* 무기 이름 */}
+                      {/* 무기 이름 (공백 없으면 전체 이름 표시) */}
                       <div className="text-xs font-bold text-white mb-1 truncate">
-                        {weapon.name.split(' ').slice(1).join(' ')}
+                        {weapon.name.includes(' ') ? weapon.name.split(' ').slice(1).join(' ') : weapon.name}
                         {weapon.upgradeLevel ? ` +${weapon.upgradeLevel}` : ''}
                       </div>
                       

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, TrendingUp, Zap } from 'lucide-react';
+import { X, TrendingUp, Zap, ArrowLeft } from 'lucide-react';
 import type { Weapon, Player } from '../types/game';
 import { upgradeWeapon } from '../utils/gameLogic';
 import { Button } from './ui/button';
@@ -9,6 +9,7 @@ interface UpgradePageProps {
   player: Player;
   onClose: () => void;
   onUpgradeWeapon: (weapon: Weapon, mode: 'single' | 'bulk10') => void;
+  onBackToInventory?: () => void;
   embedded?: boolean;
 }
 
@@ -16,6 +17,7 @@ const UpgradePage: React.FC<UpgradePageProps> = ({
   player,
   onClose,
   onUpgradeWeapon,
+  onBackToInventory,
   embedded = false,
 }) => {
   const [selectedWeapon, setSelectedWeapon] = useState<Weapon | null>(null);
@@ -97,12 +99,24 @@ const UpgradePage: React.FC<UpgradePageProps> = ({
               ⬆️ 무기를 선택하고 강화하세요 (공격력 +10%, 공격속도 +5%)
             </p>
           </div>
-          <Button
-            onClick={onClose}
-            className="bg-red-600 hover:bg-red-700 h-10 w-10 p-0"
-          >
-            <X className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onBackToInventory && (
+              <Button
+                onClick={onBackToInventory}
+                variant="outline"
+                className="bg-slate-700 hover:bg-slate-600 border-slate-500 h-10 px-3"
+              >
+                <ArrowLeft className="w-5 h-5 mr-1" />
+                뒤로가기
+              </Button>
+            )}
+            <Button
+              onClick={onClose}
+              className="bg-red-600 hover:bg-red-700 h-10 w-10 p-0"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
 
         <div className="flex gap-4 flex-1 overflow-hidden">
@@ -131,7 +145,7 @@ const UpgradePage: React.FC<UpgradePageProps> = ({
                     key={`${weapon.id}-${index}`}
                     className={`p-4 cursor-pointer transition-all ${getWeaponColor(weapon)} ${
                       equipped ? 'ring-2 ring-green-500' : ''
-                    } ${selected ? 'ring-3 ring-yellow-500 scale-105' : ''} 
+                    } ${selected ? 'ring-4 ring-yellow-500 scale-105' : ''} 
                     hover:scale-105 hover:shadow-xl border-2`}
                     onClick={() => handleWeaponClick(weapon)}
                   >
@@ -139,13 +153,13 @@ const UpgradePage: React.FC<UpgradePageProps> = ({
                       {equipped && (
                         <div className="mb-2">
                           <span className="bg-green-600 text-white text-xs px-2 py-1 rounded font-bold">
-                            ⚔️ 장착중
+                            ⚔️ 장착 중
                           </span>
                         </div>
                       )}
                       <div className="text-3xl mb-2">{weapon.name.split(' ')[0]}</div>
-                      <div className="text-sm font-bold text-white mb-2">
-                        {weapon.name.split(' ').slice(1).join(' ')}
+                      <div className="text-sm font-bold text-white mb-2 truncate">
+                        {weapon.name.includes(' ') ? weapon.name.split(' ').slice(1).join(' ') : weapon.name}
                       </div>
                       <div className="bg-yellow-600 text-white text-xs px-2 py-1 rounded inline-block mb-2">
                         Lv. {currentLevel}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Sparkles } from 'lucide-react';
+import { X, Sparkles, ArrowLeft } from 'lucide-react';
 import type { Weapon, Player } from '../types/game';
 import { canEvolveWeapon, evolveWeapon } from '../utils/gameLogic';
 import { Button } from './ui/button';
@@ -9,6 +9,7 @@ interface EvolutionPageProps {
   player: Player;
   onClose: () => void;
   onEvolveWeapon: (weapon: Weapon) => void;
+  onBackToInventory?: () => void;
   embedded?: boolean;
 }
 
@@ -16,6 +17,7 @@ const EvolutionPage: React.FC<EvolutionPageProps> = ({
   player,
   onClose,
   onEvolveWeapon,
+  onBackToInventory,
   embedded = false,
 }) => {
   const [selectedWeapon, setSelectedWeapon] = useState<Weapon | null>(null);
@@ -59,12 +61,24 @@ const EvolutionPage: React.FC<EvolutionPageProps> = ({
               🦋 무기를 선택하고 진화시키세요 (+5 이상 강화 필요)
             </p>
           </div>
-          <Button
-            onClick={onClose}
-            className="bg-red-600 hover:bg-red-700 h-10 w-10 p-0"
-          >
-            <X className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onBackToInventory && (
+              <Button
+                onClick={onBackToInventory}
+                variant="outline"
+                className="bg-slate-700 hover:bg-slate-600 border-slate-500 h-10 px-3"
+              >
+                <ArrowLeft className="w-5 h-5 mr-1" />
+                뒤로가기
+              </Button>
+            )}
+            <Button
+              onClick={onClose}
+              className="bg-red-600 hover:bg-red-700 h-10 w-10 p-0"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
 
         <div className="flex gap-4 flex-1 overflow-hidden">
@@ -100,7 +114,7 @@ const EvolutionPage: React.FC<EvolutionPageProps> = ({
                       key={`${weapon.id}-${index}`}
                       className={`p-4 cursor-pointer transition-all border-2 border-pink-500 bg-pink-900/20 ${
                         equipped ? 'ring-2 ring-green-500' : ''
-                      } ${selected ? 'ring-3 ring-pink-400 scale-105 animate-pulse' : ''} 
+                      } ${selected ? 'ring-4 ring-pink-400 scale-105 animate-pulse' : ''} 
                       hover:scale-105 hover:shadow-xl`}
                       onClick={() => handleWeaponClick(weapon)}
                     >
@@ -108,13 +122,13 @@ const EvolutionPage: React.FC<EvolutionPageProps> = ({
                         {equipped && (
                           <div className="mb-2">
                             <span className="bg-green-600 text-white text-xs px-2 py-1 rounded font-bold">
-                              ⚔️ 장착중
+                              ⚔️ 장착 중
                             </span>
                           </div>
                         )}
                         <div className="text-4xl mb-2">{weapon.name.split(' ')[0]}</div>
-                        <div className="text-sm font-bold text-white mb-2">
-                          {weapon.name.split(' ').slice(1).join(' ')}
+                        <div className="text-sm font-bold text-white mb-2 truncate">
+                          {weapon.name.includes(' ') ? weapon.name.split(' ').slice(1).join(' ') : weapon.name}
                         </div>
                         <div className="bg-pink-600 text-white text-xs px-2 py-1 rounded inline-block mb-2 animate-pulse">
                           ✨ 진화 가능!

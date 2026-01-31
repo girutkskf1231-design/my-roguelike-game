@@ -32,13 +32,13 @@ export const SkillSelectModal: React.FC<SkillSelectModalProps> = ({
       <div className="max-w-4xl w-full mx-4 bg-slate-950 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
         {/* 헤더 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-gradient-to-r from-purple-900/80 via-slate-900 to-blue-900/80">
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-7 h-7 text-purple-300 animate-pulse" />
-            <div>
-              <div className="text-lg font-bold text-white flex items-center gap-2">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <Sparkles className="w-7 h-7 text-purple-300 animate-pulse shrink-0" />
+            <div className="min-w-0">
+              <div className="text-lg font-bold text-white truncate">
                 스킬 선택
               </div>
-              <div className="text-xs text-gray-300">
+              <div className="text-xs text-gray-300 break-words">
                 보유 중인 스킬을 슬롯에 장착합니다 (최대 3개)
               </div>
             </div>
@@ -130,12 +130,12 @@ export const SkillSelectModal: React.FC<SkillSelectModalProps> = ({
 
           {/* 보유 스킬 목록 (활동 스킬만 슬롯 장착) */}
           <div className="bg-slate-900/80 rounded-xl border border-slate-700 p-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-bold text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-purple-300" />
-                보유 스킬 ({availableSkills.filter((s) => !s.isPassive).length}개)
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div className="text-sm font-bold text-white flex items-center gap-2 min-w-0">
+                <Sparkles className="w-4 h-4 text-purple-300 shrink-0" />
+                <span className="truncate">보유 스킬 ({availableSkills.filter((s) => !s.isPassive).length}개)</span>
               </div>
-              <div className="text-[11px] text-gray-400">
+              <div className="text-[11px] text-gray-400 shrink-0">
                 스킬을 선택하고 장착할 슬롯을 고르세요
               </div>
             </div>
