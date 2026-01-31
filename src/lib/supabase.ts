@@ -311,7 +311,7 @@ export async function updateProfileNickname(userId: string, nickname: string): P
     }
     return { ok: true };
   } catch (e) {
-    if (isAbortError(e)) throw e;
+    if (isAbortError(e)) return { ok: false, error: '요청이 취소되었습니다. 다시 시도해 주세요.' };
     return { ok: false, error: '네트워크 오류' };
   }
 }
