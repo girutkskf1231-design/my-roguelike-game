@@ -936,13 +936,89 @@ function App() {
             </div>
           </div>
 
-          {/* 오른쪽: 인벤토리 / 강화 / 진화 / 합성 / 아티팩트 패널 */}
+          {/* 오른쪽: 인벤토리 / 강화 / 진화 / 합성 / 아티팩트 패널 (작은 화면에서는 오버레이로 표시해 기본 메뉴와 겹침 방지) */}
           {(showInventory ||
             showUpgrade ||
             showEvolution ||
             showFusion ||
             showArtifacts) && (
-            <div className="w-[380px] h-[600px] shrink-0 rounded-lg border-4 border-slate-600 bg-slate-900/95 shadow-xl overflow-hidden flex flex-col">
+            <>
+              {/* 작은 화면: 전체 오버레이 + 배경 클릭 시 패널 닫기 */}
+              <div className="fixed inset-0 z-50 flex items-stretch justify-end lg:hidden">
+                <button
+                  type="button"
+                  aria-label="패널 닫기"
+                  className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                  onClick={() => {
+                    setShowInventory(false);
+                    setShowUpgrade(false);
+                    setShowEvolution(false);
+                    setShowFusion(false);
+                    setShowArtifacts(false);
+                  }}
+                />
+                <div className="relative z-10 w-[380px] max-w-[95vw] h-full rounded-l-lg border-l-4 border-t-4 border-b-4 border-slate-600 bg-slate-900/95 shadow-xl overflow-hidden flex flex-col">
+                  {showInventory && (
+                    <InventoryScreen
+                      embedded
+                      player={gameState.player}
+                      onClose={() => setShowInventory(false)}
+                      onEquipWeapon={equipWeaponFromInventory}
+                      onOpenUpgrade={() => {
+                        setShowInventory(false);
+                        setShowUpgrade(true);
+                      }}
+                      onOpenEvolution={() => {
+                        setShowInventory(false);
+                        setShowEvolution(true);
+                      }}
+                      onOpenFusion={() => {
+                        setShowInventory(false);
+                        setShowFusion(true);
+                      }}
+                      onOpenArtifacts={() => {
+                        setShowInventory(false);
+                        setShowArtifacts(true);
+                      }}
+                    />
+                  )}
+                  {showUpgrade && (
+                    <UpgradePage
+                      embedded
+                      player={gameState.player}
+                      onClose={() => setShowUpgrade(false)}
+                      onUpgradeWeapon={upgradeWeaponWithPoints}
+                    />
+                  )}
+                  {showEvolution && (
+                    <EvolutionPage
+                      embedded
+                      player={gameState.player}
+                      onClose={() => setShowEvolution(false)}
+                      onEvolveWeapon={evolveWeaponInInventory}
+                    />
+                  )}
+                  {showFusion && (
+                    <FusionPage
+                      embedded
+                      player={gameState.player}
+                      onClose={() => setShowFusion(false)}
+                      onFuseWeapons={fuseWeaponsInInventory}
+                    />
+                  )}
+                  {showArtifacts && (
+                    <ArtifactScreen
+                      embedded
+                      player={gameState.player}
+                      onClose={() => setShowArtifacts(false)}
+                      onEquipArtifact={equipArtifact}
+                      onUnequipArtifact={unequipArtifact}
+                    />
+                  )}
+                </div>
+              </div>
+              {/* 큰 화면: 사이드 패널 (z-20으로 게임 HUD 위에 표시해 겹침 방지) */}
+              <div className="hidden lg:flex w-[380px] h-[600px] shrink-0 rounded-lg border-4 border-slate-600 bg-slate-900/95 shadow-xl overflow-hidden flex-col relative z-20">
               {showInventory && (
                 <InventoryScreen
                   embedded
@@ -1000,7 +1076,8 @@ function App() {
                   onUnequipArtifact={unequipArtifact}
                 />
               )}
-            </div>
+              </div>
+            </>
           )}
         </div>
       )}
