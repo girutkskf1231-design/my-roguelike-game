@@ -97,9 +97,3 @@ export function getAdaptiveMaxSteps(baseMax: number, fps: number | null): number
   return Math.max(2, Math.floor(baseMax * 0.8));
 }
 
-/** 프레임 드랍 심각도 (0=정상, 1=낮음, 2=심각) */
-export function getFrameDropSeverity(fps: number | null): 0 | 1 | 2 {
-  if (fps == null || fps >= LOW_FPS_THRESHOLD) return 0;
-  if (fps >= CRITICAL_FPS_THRESHOLD) return 1;
-  return 2;
-}

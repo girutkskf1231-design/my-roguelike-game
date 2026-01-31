@@ -106,14 +106,17 @@ function isAbortError(e: unknown): boolean {
   return e instanceof Error && (e.name === 'AbortError' || e.message?.includes('aborted'));
 }
 
-/** 닉네임 사용 가능 여부 (중복·공백 제외) - RPC nickname_available 호출 */
+/** 닉네임 사용 가능 여부 (중복·공백 제외) - RPC nickname_available 호출. abortSignal로 AbortError 방지 */
 export async function checkNicknameAvailable(nickname: string): Promise<NicknameCheckResult> {
   if (!supabase) return { available: false, error: '네트워크 오류' };
+  const ac = new AbortController();
   try {
     const n = String(nickname).trim();
     if (!n) return { available: false };
     if (n.length < 2) return { available: false, error: '닉네임은 2자 이상 입력해 주세요.' };
-    const { data, error } = await supabase.rpc('nickname_available', { n });
+    const { data, error } = await supabase
+      .rpc('nickname_available', { n })
+      .abortSignal(ac.signal);
     if (error) return { available: false, error: '닉네임 확인 중 오류가 발생했습니다.' };
     return { available: data === true };
   } catch (e) {

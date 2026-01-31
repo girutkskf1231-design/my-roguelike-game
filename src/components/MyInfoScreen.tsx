@@ -411,7 +411,6 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
             <Button
               type="button"
               variant="outline"
-              disabled={false}
               onClick={async () => {
                 try {
                   await signOut();
