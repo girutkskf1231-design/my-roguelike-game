@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useState, useEffect } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
-import { supabase, signIn as authSignIn, signOut as authSignOut, getProfile, ensureProfile, type AuthProfile } from '@/lib/supabase';
+import { supabase, signIn as authSignIn, signOut as authSignOut, getProfile, ensureProfile, getSession, type AuthProfile } from '@/lib/supabase';
 
 export interface AuthContextValue {
   user: User | null;
@@ -54,10 +54,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (s?.user?.id) {
           let p = await loadProfile(s.user.id);
           if (!p) {
-            const fallback =
-              (s.user.user_metadata?.nickname as string | undefined)?.trim() ||
-              (s.user.email ?? '').split('@')[0]?.trim() ||
-              '게스트';
+            const metaNick = (s.user.user_metadata?.nickname as string | undefined)?.trim();
+            const fallback = metaNick || '게스트';
             await ensureProfile(s.user.id, fallback);
             await loadProfile(s.user.id);
           }
@@ -75,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await handleSession(s ?? null);
     });
 
+    getSession().then((s) => handleSession(s)).finally(() => resolveLoading());
     const fallback = setTimeout(resolveLoading, 3000);
     return () => {
       clearTimeout(fallback);
@@ -101,15 +100,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const ensureProfileForCurrentUser = useCallback(async (): Promise<boolean> => {
     if (!user?.id) return false;
-    const fallback =
-      (user.user_metadata?.nickname as string | undefined)?.trim() ||
-      (user.email ?? '').split('@')[0]?.trim() ||
-      '게스트';
+    const metaNick = (user.user_metadata?.nickname as string | undefined)?.trim();
+    const fallback = metaNick || '게스트';
     const ok = await ensureProfile(user.id, fallback);
     if (ok) await loadProfile(user.id);
     else await loadProfile(user.id);
     return ok;
-  }, [user?.id, user?.user_metadata?.nickname, user?.email, loadProfile]);
+  }, [user?.id, user?.user_metadata?.nickname, loadProfile]);
 
   const value: AuthContextValue = {
     user,

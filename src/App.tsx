@@ -315,7 +315,7 @@ function App() {
                       내 정보
                     </Button>
                     <span className="flex-1 flex items-center justify-center text-cyan-300 text-sm font-medium truncate px-2">
-                      {(profile?.nickname?.trim() || user.email) ?? '로그인됨'}
+                      {profile?.nickname?.trim() || '닉네임 없음'}
                     </span>
                   </>
                 ) : (
