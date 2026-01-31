@@ -84,10 +84,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(authSignIn, []);
   const signOut = useCallback(async () => {
-    await authSignOut();
+    // UI를 즉시 로그아웃 상태로 보이게 하기 위해 먼저 state 초기화
     setUser(null);
     setSession(null);
     setProfile(null);
+    try {
+      await authSignOut();
+    } catch {
+      // 서버/네트워크 오류여도 로컬 state는 이미 비워둠
+    }
   }, []);
 
   const refreshProfile = useCallback(async () => {

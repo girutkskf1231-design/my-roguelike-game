@@ -37,7 +37,31 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
   const [nicknameSaving, setNicknameSaving] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /** 파일 하나 검증 후 업로드 (input change / 드래그 드롭 공용) */
+  const processAvatarFile = async (file: File | undefined) => {
+    if (!file || !user?.id) return;
+    setAvatarError(null);
+    if (file.size > AVATAR_MAX_BYTES) {
+      setAvatarError(`프로필 사진은 ${AVATAR_MAX_BYTES / 1000}KB 이하여야 합니다.`);
+      return;
+    }
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      setAvatarError('jpg, png, gif, webp만 업로드할 수 있습니다.');
+      return;
+    }
+    setAvatarUploading(true);
+    const result = await uploadAvatar(user.id, file);
+    setAvatarUploading(false);
+    if (result.ok) {
+      await refreshProfile();
+    } else {
+      setAvatarError(result.error ?? '업로드에 실패했습니다.');
+    }
+  };
 
   const nicknameDirty = nickname.trim() !== (profile?.nickname ?? '');
   const nicknameInvalid = nickname.trim() && (hasNicknameForbiddenChars(nickname) || nickname.trim().length < 2);
@@ -78,23 +102,31 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
     setIsEditingNickname(false);
   };
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user?.id) return;
     e.target.value = '';
-    setAvatarError(null);
-    if (file.size > AVATAR_MAX_BYTES) {
-      setAvatarError(`프로필 사진은 ${AVATAR_MAX_BYTES / 1000}KB 이하여야 합니다.`);
-      return;
-    }
-    setAvatarUploading(true);
-    const result = await uploadAvatar(user.id, file);
-    setAvatarUploading(false);
-    if (result.ok) {
-      await refreshProfile();
-    } else {
-      setAvatarError(result.error ?? '업로드에 실패했습니다.');
-    }
+    void processAvatarFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.dataTransfer.types.includes('Files')) return;
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    const file = e.dataTransfer.files?.[0];
+    void processAvatarFile(file);
   };
 
   if (!supabase) {
@@ -146,21 +178,41 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
               프로필
             </h3>
             <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-600/50 space-y-4">
-              {/* 프로필 사진: 표시 최대 300px, 업로드 최대 90KB(AVATAR_MAX_BYTES) */}
+              {/* 프로필 사진: 표시 최대 300px, 업로드 최대 90KB. 클릭 또는 드래그로 업로드 */}
               <div className="flex items-center gap-4">
                 <div className="relative shrink-0">
                   <div
-                    className="w-[120px] h-[120px] rounded-full bg-slate-700 border-2 border-slate-600 overflow-hidden flex items-center justify-center"
+                    role="button"
+                    tabIndex={0}
+                    aria-label="프로필 사진 업로드 (클릭 또는 사진 드래그)"
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                    className={`w-[120px] h-[120px] rounded-full bg-slate-700 border-2 overflow-hidden flex items-center justify-center cursor-pointer transition-all outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 ${
+                      isDraggingOver ? 'border-cyan-400 ring-2 ring-cyan-400/50 scale-105' : 'border-slate-600'
+                    }`}
                     style={{ maxWidth: MAX_AVATAR_PX, maxHeight: MAX_AVATAR_PX }}
                   >
                     {profile?.avatar_url ? (
                       <img
                         src={profile.avatar_url}
                         alt="프로필"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover pointer-events-none"
                       />
                     ) : (
-                      <User className="w-12 h-12 text-gray-500" />
+                      <User className="w-12 h-12 text-gray-500 pointer-events-none" />
+                    )}
+                    {isDraggingOver && (
+                      <span className="absolute inset-0 bg-cyan-500/30 rounded-full flex items-center justify-center text-xs font-medium text-white text-center px-2 pointer-events-none">
+                        여기에 놓기
+                      </span>
                     )}
                   </div>
                   <input
@@ -175,14 +227,17 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
                     size="icon"
                     variant="secondary"
                     className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-slate-600 hover:bg-slate-500"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
                     disabled={avatarUploading}
                   >
                     <Camera className="w-4 h-4" />
                   </Button>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs text-gray-400">프로필 사진 (최대 {AVATAR_MAX_BYTES / 1000}KB)</p>
+                  <p className="text-xs text-gray-400">프로필 사진 (최대 {AVATAR_MAX_BYTES / 1000}KB) · 클릭 또는 드래그</p>
                   {avatarError && <p className="text-xs text-red-400 mt-1">{avatarError}</p>}
                   {avatarUploading && <p className="text-xs text-cyan-400 mt-1">업로드 중...</p>}
                 </div>
@@ -265,9 +320,12 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
               variant="outline"
               disabled={false}
               onClick={async () => {
-                await signOut();
-                showToast('로그아웃되었습니다.', 'success');
-                (onAfterLogout ?? onClose)();
+                try {
+                  await signOut();
+                  showToast('로그아웃되었습니다.', 'success');
+                } finally {
+                  (onAfterLogout ?? onClose)();
+                }
               }}
               className="w-full h-12 rounded-xl border-slate-500/50 text-gray-300 hover:bg-slate-800 hover:text-white flex items-center justify-center gap-2 cursor-pointer"
             >

@@ -185,11 +185,11 @@ export async function signIn(email: string, password: string): Promise<LoginResu
   }
 }
 
-/** 로그아웃 */
+/** 로그아웃 (로컬 세션 및 저장소 정리) */
 export async function signOut(): Promise<void> {
   if (!supabase) return;
   try {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
   } catch {
     /* ignore */
   }
@@ -257,13 +257,15 @@ export interface UpdateProfileResult {
   error?: string;
 }
 
-/** 프로필 닉네임 수정 (DB 트리거가 game_scores.player_name 동기화) */
+/** 프로필 닉네임 수정 (DB 트리거가 game_scores.player_name 동기화). 행이 없으면 INSERT, 있으면 UPDATE. */
 export async function updateProfileNickname(userId: string, nickname: string): Promise<UpdateProfileResult> {
   if (!supabase) return { ok: false, error: '네트워크 오류' };
   try {
     const n = String(nickname).trim().slice(0, 50);
     if (!n || n.length < 2) return { ok: false, error: '닉네임은 2자 이상 입력해 주세요.' };
-    const { error } = await supabase.from(PROFILES_TABLE).update({ nickname: n }).eq('id', userId);
+    const { error } = await supabase
+      .from(PROFILES_TABLE)
+      .upsert({ id: userId, nickname: n }, { onConflict: 'id' });
     if (error) {
       if (error.code === '23505') return { ok: false, error: '이미 사용 중인 닉네임입니다.' };
       return { ok: false, error: normalizeErrorMessage(error.message) };
