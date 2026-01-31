@@ -54,6 +54,7 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 |------|------|
 | `20260130100000_profiles_game_scores_auth.sql` | profiles, game_scores, handle_new_user, nickname_available, RLS, 닉네임 동기화 트리거 |
 | `20260130100001_avatars_storage.sql` | avatars 스토리지 버킷(90KB 제한) 및 정책 |
+| `20260131100000_nickname_available_grant.sql` | nickname_available RPC 호출 권한 (닉네임 확인 오류 방지) |
 
 ### 방법 A: Supabase 대시보드 SQL Editor
 

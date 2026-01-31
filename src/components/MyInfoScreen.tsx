@@ -109,9 +109,12 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
       return;
     }
     const check = await checkNicknameAvailable(n);
-    if (!check.available) {
-      setNicknameError(check.error ?? '이미 사용 중인 닉네임입니다.');
+    if (!check.available && !check.error) {
+      setNicknameError('이미 사용 중인 닉네임입니다.');
       return;
+    }
+    if (!check.available && check.error) {
+      showToast('닉네임 확인을 건너뛰고 저장합니다.', 'info');
     }
     setNicknameError(null);
     setNicknameSaving(true);
