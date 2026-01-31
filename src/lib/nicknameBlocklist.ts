@@ -1,7 +1,8 @@
 /**
- * 닉네임 형식: 한글·영문·숫자·공백만 허용. 이모티콘·특수문자 금지.
+ * 닉네임 형식: 한글·영문·숫자·공백·하이픈(-)·언더스코어(_) 허용.
+ * \p{L}=모든 언어 글자(한/영/일/중 등), \p{N}=숫자
  */
-const NICKNAME_ALLOWED = /^[\p{L}\p{N}\s]+$/u;
+const NICKNAME_ALLOWED = /^[\p{L}\p{N}\s_\-]+$/u;
 
 export function isNicknameFormatValid(nickname: string): boolean {
   const s = nickname.trim();
@@ -9,7 +10,7 @@ export function isNicknameFormatValid(nickname: string): boolean {
   return NICKNAME_ALLOWED.test(s);
 }
 
-/** 이모티콘·특수문자 사용 여부 (사용 시 true = 금지) */
+/** 허용되지 않은 문자 사용 여부 (이모티콘·일부 특수문자 등, 사용 시 true = 금지) */
 export function hasNicknameForbiddenChars(nickname: string): boolean {
   return !isNicknameFormatValid(nickname);
 }

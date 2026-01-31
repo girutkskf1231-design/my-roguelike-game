@@ -85,7 +85,7 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
       return;
     }
     if (hasNicknameForbiddenChars(nTrim)) {
-      setSubmitError('닉네임에는 이모티콘과 특수문자를 사용할 수 없습니다.');
+      setSubmitError('닉네임은 한글, 영문, 숫자, 공백, 하이픈(-), 언더스코어(_)만 사용 가능합니다.');
       return;
     }
     if (isInappropriateNickname(nTrim)) {
@@ -208,7 +208,7 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
 
           {/* 닉네임 */}
           <div>
-            <label className="text-sm font-medium text-slate-300 block mb-2">닉네임 (2~20자)</label>
+            <label className="text-sm font-medium text-slate-300 block mb-2">닉네임 (한글·영문·숫자·공백·-·_ 가능, 2~20자)</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />

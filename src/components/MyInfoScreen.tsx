@@ -84,7 +84,7 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
       return;
     }
     if (hasNicknameForbiddenChars(n)) {
-      setNicknameError('이모티콘과 특수문자는 사용할 수 없습니다.');
+      setNicknameError('한글, 영문, 숫자, 공백, 하이픈(-), 언더스코어(_)만 사용 가능합니다.');
       return;
     }
     if (n === currentProfileNickname) {
@@ -265,7 +265,7 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
                 <p className="text-xs text-amber-400/90">프로필을 불러오지 못했습니다. 수정 버튼으로 닉네임을 입력한 뒤 저장해 보세요.</p>
               )}
               <div>
-                <label className="text-xs text-gray-400 block mb-1">닉네임 (수정 시 리더보드에 등재된 닉네임도 수정됩니다)</label>
+                <label className="text-xs text-gray-400 block mb-1">닉네임 (한글·영문·숫자·공백·-·_ 가능, 2~20자)</label>
                 {isEditingNickname ? (
                   <>
                     <div className="flex flex-wrap gap-2 items-center">
@@ -273,7 +273,7 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
                         type="text"
                         value={nickname}
                         onChange={(e) => { setNickname(e.target.value); setNicknameError(null); }}
-                        placeholder="닉네임"
+                        placeholder="닉네임 입력 (2~20자)"
                         maxLength={20}
                         className="flex-1 min-w-[120px] px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
                       />
@@ -289,7 +289,7 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
                         <Button
                           type="button"
                           onClick={handleSaveNickname}
-                          disabled={!nicknameDirty || nicknameInvalid || nicknameSaving}
+                          disabled={!nicknameDirty || nicknameSaving}
                         >
                           {nicknameSaving ? '저장 중...' : '저장'}
                         </Button>
@@ -297,7 +297,7 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
                     </div>
                     {nicknameError && <p className="text-xs text-red-400 mt-1">{nicknameError}</p>}
                     {nicknameInvalid && !nicknameError && (
-                      <p className="text-xs text-amber-400 mt-1">이모티콘·특수문자 불가, 2자 이상</p>
+                      <p className="text-xs text-amber-400 mt-1">한글, 영문, 숫자, 공백, (-), (_) 가능 · 2자 이상</p>
                     )}
                   </>
                 ) : (
