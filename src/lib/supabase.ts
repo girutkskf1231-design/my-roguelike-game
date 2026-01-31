@@ -263,12 +263,29 @@ export async function updateProfileNickname(userId: string, nickname: string): P
   try {
     const n = String(nickname).trim().slice(0, 50);
     if (!n || n.length < 2) return { ok: false, error: '닉네임은 2자 이상 입력해 주세요.' };
-    const { error } = await supabase
+
+    // 1) UPDATE 시도 (행이 있으면 갱신, .select().single()으로 실제 반영 여부 확인)
+    const { data: updated, error: updateError } = await supabase
       .from(PROFILES_TABLE)
-      .upsert({ id: userId, nickname: n }, { onConflict: 'id' });
-    if (error) {
-      if (error.code === '23505') return { ok: false, error: '이미 사용 중인 닉네임입니다.' };
-      return { ok: false, error: normalizeErrorMessage(error.message) };
+      .update({ nickname: n })
+      .eq('id', userId)
+      .select('id')
+      .maybeSingle();
+
+    if (updateError) {
+      if (updateError.code === '23505') return { ok: false, error: '이미 사용 중인 닉네임입니다.' };
+      return { ok: false, error: normalizeErrorMessage(updateError.message) };
+    }
+
+    // 2) UPDATE가 0행이면 프로필 행 없음 → INSERT
+    if (!updated) {
+      const { error: insertError } = await supabase
+        .from(PROFILES_TABLE)
+        .insert({ id: userId, nickname: n });
+      if (insertError) {
+        if (insertError.code === '23505') return { ok: false, error: '이미 사용 중인 닉네임입니다.' };
+        return { ok: false, error: normalizeErrorMessage(insertError.message) };
+      }
     }
     return { ok: true };
   } catch {

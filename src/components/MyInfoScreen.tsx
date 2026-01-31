@@ -278,6 +278,7 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
                         취소
                       </Button>
                       <Button
+                        type="button"
                         onClick={handleSaveNickname}
                         disabled={!nicknameDirty || nicknameInvalid || nicknameSaving}
                         className="ml-2"
