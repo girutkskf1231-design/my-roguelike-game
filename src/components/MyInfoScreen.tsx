@@ -63,13 +63,15 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
     }
   };
 
-  const nicknameDirty = nickname.trim() !== (profile?.nickname ?? '');
-  const nicknameInvalid = nickname.trim() && (hasNicknameForbiddenChars(nickname) || nickname.trim().length < 2);
+  const trimmedNickname = nickname.trim();
+  const currentProfileNickname = (profile?.nickname ?? '').trim();
+  const nicknameDirty = trimmedNickname !== currentProfileNickname;
+  const nicknameInvalid = trimmedNickname && (hasNicknameForbiddenChars(nickname) || trimmedNickname.length < 2);
 
   const handleSaveNickname = async () => {
-    if (!user?.id || !nicknameDirty) return;
-    const n = nickname.trim();
-    if (n.length < 2) {
+    if (!user?.id) return;
+    const n = trimmedNickname;
+    if (!n || n.length < 2) {
       setNicknameError('닉네임은 2자 이상 입력해 주세요.');
       return;
     }
@@ -77,22 +79,29 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
       setNicknameError('이모티콘과 특수문자는 사용할 수 없습니다.');
       return;
     }
+    if (n === currentProfileNickname) {
+      setIsEditingNickname(false);
+      return;
+    }
     const available = await checkNicknameAvailable(n);
-    if (!available && n !== profile?.nickname) {
+    if (!available) {
       setNicknameError('이미 사용 중인 닉네임입니다.');
       return;
     }
     setNicknameError(null);
     setNicknameSaving(true);
-    // 프로필 행이 없을 수 있음(자동 로그인/ensure 실패) → 저장 전 한 번 ensure
-    if (!profile) await ensureProfileForCurrentUser();
-    const result = await updateProfileNickname(user.id, n);
-    setNicknameSaving(false);
-    if (result.ok) {
-      await refreshProfile();
-      setIsEditingNickname(false);
-    } else {
-      setNicknameError(result.error ?? '저장에 실패했습니다.');
+    try {
+      if (!profile) await ensureProfileForCurrentUser();
+      const result = await updateProfileNickname(user.id, n);
+      if (result.ok) {
+        await refreshProfile();
+        showToast('닉네임이 저장되었습니다.', 'success');
+        setIsEditingNickname(false);
+      } else {
+        setNicknameError(result.error ?? '저장에 실패했습니다.');
+      }
+    } finally {
+      setNicknameSaving(false);
     }
   };
 
@@ -271,6 +280,7 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
                       <Button
                         onClick={handleSaveNickname}
                         disabled={!nicknameDirty || nicknameInvalid || nicknameSaving}
+                        className="ml-2"
                       >
                         {nicknameSaving ? '저장 중...' : '저장'}
                       </Button>

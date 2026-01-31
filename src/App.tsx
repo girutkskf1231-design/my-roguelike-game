@@ -1006,6 +1006,10 @@ function App() {
                   onClose={() => setShowArtifacts(false)}
                   onEquipArtifact={equipArtifact}
                   onUnequipArtifact={unequipArtifact}
+                  onBackToInventory={() => {
+                    setShowArtifacts(false);
+                    setShowInventory(true);
+                  }}
                 />
               )}
             </>

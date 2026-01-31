@@ -3,17 +3,18 @@ import type { Player, Artifact } from '../types/game';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { X, Gem } from 'lucide-react';
+import { X, Gem, ArrowLeft } from 'lucide-react';
 
 interface ArtifactScreenProps {
   player: Player;
   onClose: () => void;
   onEquipArtifact: (artifact: Artifact, slotIndex: number) => void;
   onUnequipArtifact: (slotIndex: number) => void;
+  onBackToInventory?: () => void;
   embedded?: boolean;
 }
 
-const ArtifactScreen = ({ player, onClose, onEquipArtifact, onUnequipArtifact, embedded = false }: ArtifactScreenProps) => {
+const ArtifactScreen = ({ player, onClose, onEquipArtifact, onUnequipArtifact, onBackToInventory, embedded = false }: ArtifactScreenProps) => {
   const [expandedArtifacts, setExpandedArtifacts] = useState<Set<string>>(new Set());
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
 
@@ -70,14 +71,26 @@ const ArtifactScreen = ({ player, onClose, onEquipArtifact, onUnequipArtifact, e
                 아티펙트를 클릭하면 설명이 나타납니다. 설명을 본 후 슬롯을 클릭하여 장착하세요.
               </CardDescription>
             </div>
-            <Button
-              onClick={onClose}
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-red-600"
-            >
-              <X className="w-6 h-6" />
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              {onBackToInventory && (
+                <Button
+                  onClick={onBackToInventory}
+                  variant="outline"
+                  className="bg-slate-700 hover:bg-slate-600 border-slate-500 h-10 px-3"
+                >
+                  <ArrowLeft className="w-5 h-5 mr-1" />
+                  뒤로가기
+                </Button>
+              )}
+              <Button
+                onClick={onClose}
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-red-600 h-10 w-10"
+              >
+                <X className="w-6 h-6" />
+              </Button>
+            </div>
           </CardHeader>
 
           <CardContent className="space-y-6">
