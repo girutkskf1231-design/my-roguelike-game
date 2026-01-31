@@ -18,7 +18,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 /**
  * 로그인 상태를 앱 전체에서 하나로 공유.
  * - App·MyInfoScreen·LoginScreen 등이 동일한 user/profile을 보도록 함.
- * - 자동 로그인: onAuthStateChange(INITIAL_SESSION)에서만 초기 세션 적용.
+ * - 자동 로그인: persistSession(true)로 localStorage에 세션 저장.
+ *   onAuthStateChange(INITIAL_SESSION) + getSession() 이중 호출로 복원 보장.
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
