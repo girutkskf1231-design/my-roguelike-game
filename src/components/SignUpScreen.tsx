@@ -50,6 +50,10 @@ export function SignUpScreen({ onClose, onSuccess }: SignUpScreenProps) {
       setNicknameCheckMessage(null);
       return;
     }
+    if (n.length < 2 || n.length > 20) {
+      setNicknameCheckMessage('taken');
+      return;
+    }
     if (hasNicknameForbiddenChars(n)) {
       setNicknameCheckMessage('taken');
       return;

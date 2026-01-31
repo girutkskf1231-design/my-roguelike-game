@@ -91,6 +91,23 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
       setIsEditingNickname(false);
       return;
     }
+    if (n.toLowerCase() === currentProfileNickname.toLowerCase()) {
+      setNicknameSaving(true);
+      try {
+        if (!profile) await ensureProfile(user.id, n);
+        const result = await updateProfileNickname(user.id, n);
+        if (result.ok) {
+          await refreshProfile();
+          showToast('닉네임이 저장되었습니다.', 'success');
+          setIsEditingNickname(false);
+        } else {
+          setNicknameError(result.error ?? '저장에 실패했습니다.');
+        }
+      } finally {
+        setNicknameSaving(false);
+      }
+      return;
+    }
     const check = await checkNicknameAvailable(n);
     if (!check.available) {
       setNicknameError(check.error ?? '이미 사용 중인 닉네임입니다.');

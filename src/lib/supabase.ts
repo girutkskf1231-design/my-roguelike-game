@@ -107,6 +107,7 @@ export async function checkNicknameAvailable(nickname: string): Promise<Nickname
   try {
     const n = String(nickname).trim();
     if (!n) return { available: false };
+    if (n.length < 2) return { available: false, error: '닉네임은 2자 이상 입력해 주세요.' };
     const { data, error } = await supabase.rpc('nickname_available', { n });
     if (error) return { available: false, error: '닉네임 확인 중 오류가 발생했습니다.' };
     return { available: data === true };
