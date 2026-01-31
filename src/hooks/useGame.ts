@@ -29,10 +29,11 @@ import {
 import { getClassById } from '../data/classes';
 import { fuseWeapons } from '../data/weaponFusions';
 import { initGameSession, updateStatisticsOnGameEnd } from '../utils/statistics';
-import { getLogicSteps } from '../utils/frameStabilizer';
+import { getLogicSteps, isTabVisible, createFpsCounter, getAdaptiveMaxSteps } from '../utils/frameStabilizer';
 
 const FIXED_TIMESTEP_SEC = 1 / 60;
 const MAX_STEPS_PER_FRAME = 5;
+const MAX_DAMAGE_TEXTS = 40;
 
 export const useGame = () => {
   const [selectedClass, setSelectedClass] = useState<ClassType | null>(() => loadSelectedClass());
@@ -63,6 +64,8 @@ export const useGame = () => {
   const gameStateRef = useRef<GameState>(gameState);
   const lastFrameTimeRef = useRef<number>(0);
   const accumulatedTimeRef = useRef<number>(0);
+  const fpsCounterRef = useRef<ReturnType<typeof createFpsCounter> | null>(null);
+  if (!fpsCounterRef.current) fpsCounterRef.current = createFpsCounter();
 
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -1049,17 +1052,25 @@ export const useGame = () => {
 
   useEffect(() => {
     if (gameState.gameStatus !== 'playing' || gameState.isPaused) return;
+    fpsCounterRef.current?.reset();
 
     const gameLoop = () => {
+      if (!isTabVisible()) {
+        animationFrameId.current = requestAnimationFrame(gameLoop);
+        return;
+      }
+
       const now = performance.now();
+      const fps = fpsCounterRef.current?.tick() ?? null;
       const deltaSec = lastFrameTimeRef.current > 0
         ? (now - lastFrameTimeRef.current) / 1000
         : FIXED_TIMESTEP_SEC;
       lastFrameTimeRef.current = now;
 
+      const adaptiveMax = getAdaptiveMaxSteps(MAX_STEPS_PER_FRAME, fps);
       const { steps } = getLogicSteps(deltaSec, accumulatedTimeRef, {
         ticksPerSecond: 60,
-        maxStepsPerFrame: MAX_STEPS_PER_FRAME,
+        maxStepsPerFrame: adaptiveMax,
       });
 
       if (steps === 0) {
@@ -1332,8 +1343,9 @@ export const useGame = () => {
           return true;
         });
 
-        // 데미지 텍스트 업데이트 (위로 올라가고 투명해짐)
+        // 데미지 텍스트 업데이트 (위로 올라가고 투명해짐). 최대 개수 제한으로 프레임 드랍 방지
         const updatedDamageTexts = [...prev.damageTexts, ...newDamageTexts]
+          .slice(-MAX_DAMAGE_TEXTS)
           .map(text => ({
             ...text,
             offsetY: text.offsetY - 2,

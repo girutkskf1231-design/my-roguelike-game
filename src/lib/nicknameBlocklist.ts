@@ -1,13 +1,13 @@
 /**
- * 닉네임 형식: 한글·영문·숫자·공백·하이픈(-)·언더스코어(_) 허용.
- * \p{L}=모든 언어 글자(한/영/일/중 등), \p{N}=숫자
+ * DB profiles.nickname CHECK와 동일: 한글·영문·숫자·공백·하이픈(-)·언더스코어(_) 허용.
+ * length >= 2 (DB: length(TRIM) >= 2)
  */
-const NICKNAME_ALLOWED = /^[\p{L}\p{N}\s_\-]+$/u;
+const NICKNAME_DB_REGEX = /^[가-힣a-zA-Z0-9 \-_]+$/;
 
 export function isNicknameFormatValid(nickname: string): boolean {
   const s = nickname.trim();
-  if (!s) return false;
-  return NICKNAME_ALLOWED.test(s);
+  if (!s || s.length < 2) return false;
+  return NICKNAME_DB_REGEX.test(s);
 }
 
 /** 허용되지 않은 문자 사용 여부 (이모티콘·일부 특수문자 등, 사용 시 true = 금지) */

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase, updateProfileNickname, uploadAvatar, checkNicknameAvailable, ensureProfile, AVATAR_MAX_BYTES } from '@/lib/supabase';
-import { hasNicknameForbiddenChars } from '@/lib/nicknameBlocklist';
+import { hasNicknameForbiddenChars, isInappropriateNickname } from '@/lib/nicknameBlocklist';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/contexts/ToastContext';
 import { StatisticsContent } from '@/components/StatisticsScreen';
@@ -16,11 +16,26 @@ interface MyInfoScreenProps {
   onAfterLogout?: () => void;
 }
 
+/** AbortError 여부 (React StrictMode/탭 전환 등으로 요청 취소 시) */
+function isAbortError(e: unknown): boolean {
+  return e instanceof Error && (e.name === 'AbortError' || e.message?.includes('aborted'));
+}
+
 export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
   const { user, profile, loading, refreshProfile, signOut, ensureProfileForCurrentUser } = useAuth();
   const showToast = useToast();
   const [nickname, setNickname] = useState(profile?.nickname ?? '');
   const ensuredOnce = useRef(false);
+  const isMountedRef = useRef(true);
+  const saveInFlightRef = useRef(false);
+  const cancelRequestedRef = useRef(false);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     setNickname(profile?.nickname ?? '');
@@ -78,6 +93,9 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
 
   const handleSaveNickname = async () => {
     if (!user?.id) return;
+    if (saveInFlightRef.current) return;
+    cancelRequestedRef.current = false;
+
     const n = trimmedNickname;
     if (!n || n.length < 2) {
       setNicknameError('닉네임은 2자 이상 입력해 주세요.');
@@ -87,63 +105,88 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
       setNicknameError('한글, 영문, 숫자, 공백, 하이픈(-), 언더스코어(_)만 사용 가능합니다.');
       return;
     }
+    if (isInappropriateNickname(n)) {
+      setNicknameError('부적절한 닉네임은 사용할 수 없습니다.');
+      return;
+    }
     if (n === currentProfileNickname) {
       setIsEditingNickname(false);
       return;
     }
-    if (n.toLowerCase() === currentProfileNickname.toLowerCase()) {
-      setNicknameSaving(true);
+
+    // 닉네임 변경(대소문자만 다른 경우)이면 중복 확인 생략, 아니면 확인
+    const skipDuplicateCheck = n.toLowerCase() === currentProfileNickname.toLowerCase();
+    if (!skipDuplicateCheck) {
+      try {
+        const check = await checkNicknameAvailable(n);
+        if (!isMountedRef.current) return;
+        if (!check.available && !check.error) {
+          setNicknameError('이미 사용 중인 닉네임입니다.');
+          return;
+        }
+        if (!check.available && check.error) {
+          showToast('닉네임 확인을 건너뛰고 저장합니다.', 'info');
+        }
+      } catch (e) {
+        if (!isMountedRef.current) return;
+        if (cancelRequestedRef.current) return;
+        setNicknameError(
+          isAbortError(e)
+            ? '닉네임 확인 중 요청이 취소되었습니다. 다시 시도해 주세요.'
+            : '닉네임 확인 중 오류가 발생했습니다. 다시 시도해 주세요.'
+        );
+        return;
+      }
+      if (cancelRequestedRef.current) return;
+    }
+    if (cancelRequestedRef.current) return;
+
+    saveInFlightRef.current = true;
+    setNicknameError(null);
+    setNicknameSaving(true);
+
+    const performSave = async (retryCount = 0): Promise<void> => {
+      if (cancelRequestedRef.current) {
+        saveInFlightRef.current = false;
+        if (isMountedRef.current) setNicknameSaving(false);
+        return;
+      }
       try {
         if (!profile) await ensureProfile(user.id, n);
+        if (!isMountedRef.current) return;
         const result = await updateProfileNickname(user.id, n);
+        if (!isMountedRef.current) return;
         if (result.ok) {
           await refreshProfile();
+          if (!isMountedRef.current) return;
           showToast('닉네임이 저장되었습니다.', 'success');
           setIsEditingNickname(false);
         } else {
           setNicknameError(result.error ?? '저장에 실패했습니다.');
         }
       } catch (e) {
-        const msg = e instanceof Error && (e.name === 'AbortError' || e.message?.includes('aborted'))
+        if (!isMountedRef.current) return;
+        if (isAbortError(e) && retryCount < 1) {
+          await new Promise((r) => setTimeout(r, 300));
+          if (!isMountedRef.current) return;
+          await performSave(retryCount + 1);
+          return;
+        }
+        const msg = isAbortError(e)
           ? '요청이 취소되었습니다. 다시 시도해 주세요.'
           : '저장 중 오류가 발생했습니다. 다시 시도해 주세요.';
         setNicknameError(msg);
       } finally {
-        setNicknameSaving(false);
+        saveInFlightRef.current = false;
+        if (isMountedRef.current) setNicknameSaving(false);
       }
-      return;
-    }
-    const check = await checkNicknameAvailable(n);
-    if (!check.available && !check.error) {
-      setNicknameError('이미 사용 중인 닉네임입니다.');
-      return;
-    }
-    if (!check.available && check.error) {
-      showToast('닉네임 확인을 건너뛰고 저장합니다.', 'info');
-    }
-    setNicknameError(null);
-    setNicknameSaving(true);
-    try {
-      if (!profile) await ensureProfile(user.id, n);
-      const result = await updateProfileNickname(user.id, n);
-      if (result.ok) {
-        await refreshProfile();
-        showToast('닉네임이 저장되었습니다.', 'success');
-        setIsEditingNickname(false);
-      } else {
-        setNicknameError(result.error ?? '저장에 실패했습니다.');
-      }
-    } catch (e) {
-      const msg = e instanceof Error && (e.name === 'AbortError' || e.message?.includes('aborted'))
-        ? '요청이 취소되었습니다. 다시 시도해 주세요.'
-        : '저장 중 오류가 발생했습니다. 다시 시도해 주세요.';
-      setNicknameError(msg);
-    } finally {
-      setNicknameSaving(false);
-    }
+    };
+
+    await performSave();
   };
 
   const handleCancelNicknameEdit = () => {
+    cancelRequestedRef.current = true;
     setNickname(profile?.nickname ?? '');
     setNicknameError(null);
     setIsEditingNickname(false);

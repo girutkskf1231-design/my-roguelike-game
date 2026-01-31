@@ -274,20 +274,24 @@ export interface UpdateProfileResult {
 /** 프로필 닉네임 수정 (DB 트리거가 game_scores.player_name 동기화). 행이 없으면 INSERT, 있으면 UPDATE. */
 export async function updateProfileNickname(userId: string, nickname: string): Promise<UpdateProfileResult> {
   if (!supabase) return { ok: false, error: '네트워크 오류' };
+  // 우리가 제어하는 signal(절대 abort 안 함) → React StrictMode/탭 전환으로 인한 외부 abort 방지
+  const ac = new AbortController();
   try {
     const n = String(nickname).trim().slice(0, 50);
     if (!n || n.length < 2) return { ok: false, error: '닉네임은 2자 이상 입력해 주세요.' };
 
-    // 1) UPDATE 시도 (행이 있으면 갱신, .select().single()으로 실제 반영 여부 확인)
+    // 1) UPDATE 시도 (행이 있으면 갱신). abortSignal로 React StrictMode에 의한 외부 abort 방지
     const { data: updated, error: updateError } = await supabase
       .from(PROFILES_TABLE)
       .update({ nickname: n })
       .eq('id', userId)
       .select('id')
+      .abortSignal(ac.signal)
       .maybeSingle();
 
     if (updateError) {
       if (updateError.code === '23505') return { ok: false, error: '이미 사용 중인 닉네임입니다.' };
+      if (updateError.code === '23514') return { ok: false, error: '닉네임은 한글·영문·숫자·공백·-·_ 만 가능하며 2자 이상이어야 합니다.' };
       return { ok: false, error: normalizeErrorMessage(updateError.message) };
     }
 
@@ -298,12 +302,13 @@ export async function updateProfileNickname(userId: string, nickname: string): P
         .insert({ id: userId, nickname: n });
       if (insertError) {
         if (insertError.code === '23505') return { ok: false, error: '이미 사용 중인 닉네임입니다.' };
+        if (insertError.code === '23514') return { ok: false, error: '닉네임은 한글·영문·숫자·공백·-·_ 만 가능하며 2자 이상이어야 합니다.' };
         return { ok: false, error: normalizeErrorMessage(insertError.message) };
       }
     }
     return { ok: true };
   } catch (e) {
-    if (isAbortError(e)) return { ok: false, error: '요청이 취소되었습니다. 다시 시도해 주세요.' };
+    if (isAbortError(e)) throw e;
     return { ok: false, error: '네트워크 오류' };
   }
 }

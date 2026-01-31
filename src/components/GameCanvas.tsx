@@ -8,6 +8,8 @@ interface GameCanvasProps {
 }
 
 const STAR_COUNT = 50;
+const MAX_PROJECTILES_RENDER = 120;
+const MAX_DAMAGE_TEXTS_RENDER = 35;
 const STARS = Array.from({ length: STAR_COUNT }, (_, i) => ({
   x: (i * 123) % CANVAS_WIDTH,
   y: (i * 456) % (CANVAS_HEIGHT / 2),
@@ -104,6 +106,9 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     let lastStaticWave = -1;
 
     const draw = (state: GameState) => {
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
+      ctx.globalAlpha = 1;
       const t = performance.now();
       if (state.wave !== lastStaticWave) {
         drawStaticLayer(state);
@@ -871,7 +876,7 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     ctx.lineWidth = 3;
     ctx.strokeRect(bx + 5, by, 50, 80);
 
-    state.projectiles.forEach((proj) => {
+    state.projectiles.slice(0, MAX_PROJECTILES_RENDER).forEach((proj) => {
       const projCenterX = proj.position.x + proj.width / 2;
       const projCenterY = proj.position.y + proj.height / 2;
       
@@ -1370,7 +1375,7 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
       });
     }
 
-    state.damageTexts.forEach((damageText) => {
+    state.damageTexts.slice(0, MAX_DAMAGE_TEXTS_RENDER).forEach((damageText) => {
       ctx.globalAlpha = damageText.opacity;
       
       const x = damageText.position.x;
