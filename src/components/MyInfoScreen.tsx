@@ -115,7 +115,7 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
     }
 
     // 닉네임 변경(대소문자만 다른 경우)이면 중복 확인 생략, 아니면 확인
-    const skipDuplicateCheck = n.toLowerCase() === currentProfileNickname.toLowerCase();
+    const skipDuplicateCheck = n.toLowerCase() === (currentProfileNickname ?? '').toLowerCase();
     if (!skipDuplicateCheck) {
       try {
         const check = await checkNicknameAvailable(n);

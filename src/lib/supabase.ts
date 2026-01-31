@@ -22,7 +22,7 @@ export const supabase = supabaseInstance;
 
 /** Supabase/서버 측 일반 오류 메시지를 사용자용 한글 메시지로 변환 */
 function normalizeErrorMessage(message: string): string {
-  const m = message.toLowerCase();
+  const m = (message ?? '').toLowerCase();
   if (
     m.includes('unexpected error occurred') ||
     m.includes('please try again') ||

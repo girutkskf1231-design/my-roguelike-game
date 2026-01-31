@@ -5,7 +5,7 @@
 const NICKNAME_DB_REGEX = /^[가-힣a-zA-Z0-9 \-_]+$/;
 
 export function isNicknameFormatValid(nickname: string): boolean {
-  const s = nickname.trim();
+  const s = (nickname ?? '').trim();
   if (!s || s.length < 2) return false;
   return NICKNAME_DB_REGEX.test(s);
 }
@@ -37,7 +37,7 @@ const BLOCKLIST_LOWER = BLOCKLIST_RAW.map((w) => w.toLowerCase().replace(/\s/g, 
 
 /** 부적절한 닉네임 여부 (성적·욕설·비하 등) */
 export function isInappropriateNickname(nickname: string): boolean {
-  const normalized = nickname.trim().toLowerCase().replace(/\s/g, '');
+  const normalized = (nickname ?? '').trim().toLowerCase().replace(/\s/g, '');
   if (!normalized) return true;
   for (const word of BLOCKLIST_LOWER) {
     if (word.length >= 2 && normalized.includes(word)) return true;

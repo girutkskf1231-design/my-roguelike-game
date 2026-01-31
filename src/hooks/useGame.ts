@@ -781,7 +781,7 @@ export const useGame = () => {
         return;
       }
 
-      keysPressed.current.add(e.key.toLowerCase());
+      if (e.key != null) keysPressed.current.add(e.key.toLowerCase());
 
       if ((e.key === ' ' || e.key === 'w' || e.key === 'W') && !gameState.player.isJumping) {
         setGameState((prev) => ({
@@ -994,7 +994,7 @@ export const useGame = () => {
                 element: weaponElement,
                 elementalDamage: weaponElementalDamage,
                 piercing: weapon.piercing,
-                isTracking: weapon.special === '적을 추적', // 적 추적 무기
+                isTracking: weapon.special === '적을 추적' || (weapon.special?.includes('유도') ?? false), // 적 추적/유도 무기 (천상의 다중궁 등)
                 lifetime: weapon.projectileLifetime || 60,
                 createdAt: currentTime,
                 shape: 'default',
@@ -1038,7 +1038,7 @@ export const useGame = () => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      keysPressed.current.delete(e.key.toLowerCase());
+      if (e.key != null) keysPressed.current.delete(e.key.toLowerCase());
     };
 
     window.addEventListener('keydown', handleKeyDown);
