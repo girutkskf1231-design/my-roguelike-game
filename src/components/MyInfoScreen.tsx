@@ -103,6 +103,11 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
         } else {
           setNicknameError(result.error ?? '저장에 실패했습니다.');
         }
+      } catch (e) {
+        const msg = e instanceof Error && (e.name === 'AbortError' || e.message?.includes('aborted'))
+          ? '요청이 취소되었습니다. 다시 시도해 주세요.'
+          : '저장 중 오류가 발생했습니다. 다시 시도해 주세요.';
+        setNicknameError(msg);
       } finally {
         setNicknameSaving(false);
       }
@@ -128,6 +133,11 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
       } else {
         setNicknameError(result.error ?? '저장에 실패했습니다.');
       }
+    } catch (e) {
+      const msg = e instanceof Error && (e.name === 'AbortError' || e.message?.includes('aborted'))
+        ? '요청이 취소되었습니다. 다시 시도해 주세요.'
+        : '저장 중 오류가 발생했습니다. 다시 시도해 주세요.';
+      setNicknameError(msg);
     } finally {
       setNicknameSaving(false);
     }
