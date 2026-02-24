@@ -5,6 +5,10 @@ import { Trophy, RefreshCw, X, UserCheck } from 'lucide-react';
 import { getClassDisplayName } from '@/data/classes';
 import { useAuth } from '@/hooks/useAuth';
 
+// 모듈 수준 캐시 (60초 TTL)
+let leaderboardCache: { data: GameScoreRow[]; fetchedAt: number } | null = null;
+const CACHE_TTL_MS = 60_000;
+
 const NICKNAME_KEY = 'roguelike-player-name';
 
 /** 초 단위를 MM:SS 또는 HH:MM:SS 문자열로 변환 */
@@ -46,11 +50,18 @@ export function LeaderboardScreen({ onClose, embedded }: LeaderboardScreenProps)
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
-  const load = async () => {
+  const load = async (forceRefresh = false) => {
+    // 캐시가 유효하고 강제 새로고침이 아닌 경우 캐시 데이터 사용
+    if (!forceRefresh && leaderboardCache && Date.now() - leaderboardCache.fetchedAt < CACHE_TTL_MS) {
+      setScores(leaderboardCache.data);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setLoadError(false);
     try {
       const list = await fetchLeaderboard(30);
+      leaderboardCache = { data: list, fetchedAt: Date.now() };
       setScores(list);
     } catch {
       setLoadError(true);
@@ -88,7 +99,7 @@ export function LeaderboardScreen({ onClose, embedded }: LeaderboardScreenProps)
             <Button
               variant="secondary"
               size="sm"
-              onClick={load}
+              onClick={() => load(true)}
               disabled={loading}
               className="bg-slate-700 hover:bg-slate-600"
             >

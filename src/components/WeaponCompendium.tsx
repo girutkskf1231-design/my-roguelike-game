@@ -5,6 +5,9 @@ import { fetchWeaponCompendium, type WeaponCompendiumEntry } from '../lib/supaba
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 
+// 세션 내 카테고리별 캐시
+const weaponCache = new Map<string, WeaponCompendiumEntry[]>();
+
 const CATEGORIES = [
   { id: 'melee', label: '근접 무기', icon: Sword },
   { id: 'ranged', label: '원거리 무기', icon: Target },
@@ -19,8 +22,15 @@ export const WeaponCompendium: React.FC<{ onBack?: () => void }> = ({ onBack }) 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 캐시에 있으면 즉시 표시
+    if (weaponCache.has(category)) {
+      setWeapons(weaponCache.get(category)!);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     fetchWeaponCompendium(category).then((data) => {
+      weaponCache.set(category, data);
       setWeapons(data);
       setLoading(false);
     });

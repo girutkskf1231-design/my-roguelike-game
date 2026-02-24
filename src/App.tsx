@@ -321,11 +321,27 @@ function App() {
                     <Button
                       onClick={() => setShowMyInfo(true)}
                       variant="outline"
-                      className="flex-1 h-12 text-base font-bold border-2 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900/30"
+                      className="flex-1 h-12 text-base font-bold border-2 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900/30 flex items-center gap-2"
                     >
+                      {profile?.avatar_url ? (
+                        <img
+                          src={profile.avatar_url}
+                          alt="프로필"
+                          className="w-6 h-6 rounded-full object-cover shrink-0 border border-cyan-400/50"
+                        />
+                      ) : (
+                        <span className="w-6 h-6 rounded-full bg-slate-600 border border-cyan-400/50 flex items-center justify-center shrink-0 text-xs">👤</span>
+                      )}
                       내 정보
                     </Button>
-                    <span className="flex-1 flex items-center justify-center text-cyan-300 text-sm font-medium truncate px-2">
+                    <span className="flex-1 flex items-center justify-center gap-1.5 text-cyan-300 text-sm font-medium truncate px-2">
+                      {profile?.avatar_url && (
+                        <img
+                          src={profile.avatar_url}
+                          alt=""
+                          className="w-5 h-5 rounded-full object-cover shrink-0 border border-cyan-400/40"
+                        />
+                      )}
                       {profile?.nickname?.trim() || '닉네임 없음'}
                     </span>
                   </>

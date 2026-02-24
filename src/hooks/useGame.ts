@@ -1127,6 +1127,8 @@ export const useGame = () => {
       frameCountRef.current += 1;
       startTransition(() => {
         setGameState((prev) => {
+        // 게임이 진행 중이 아니면 상태를 변경하지 않음 (레벨업 보상 선택 중 게임 종료 방지)
+        if (prev.gameStatus !== 'playing') return prev;
         let newPlayer = updatePlayer(prev.player, keysPressed.current, prev.platforms);
         const regenPercent = newPlayer.equippedArtifacts.reduce(
           (sum, a) => sum + (a?.effects.regenPercentPer5Sec ?? 0),
@@ -1429,7 +1431,7 @@ export const useGame = () => {
           .filter(text => text.opacity > 0);
 
         // 승리 조건
-        let newGameStatus = prev.gameStatus;
+        let newGameStatus: 'playing' | 'victory' | 'defeat' | 'choosing' | 'menu' = prev.gameStatus;
         let newScore = prev.score;
         let newWave = prev.wave;
         let showRewardScreen = false;
@@ -1504,11 +1506,17 @@ export const useGame = () => {
             showRewardScreen = true;
             newGameStatus = 'choosing';
             
+            // 첫 번째 보상은 즉시 표시, 나머지는 pending으로 적재
+            // levelUpCount > 0이면 레벨업 보상에서 1개 차감, bonusRewards는 모두 유지
+            // levelUpCount = 0이면 bonusRewards에서 1개 차감
+            const initialPendingLevelUps = levelUpCount > 0 ? levelUpCount - 1 : 0;
+            const initialPendingBonusRewards = levelUpCount > 0 ? bonusRewardCount : (bonusRewardCount > 0 ? bonusRewardCount - 1 : 0);
+            
             return {
               ...prev,
               player: newPlayer,
               boss: newBoss,
-              projectiles: updatedProjectiles,
+              projectiles: [], // 보상 선택 화면 전환 시 투사체 초기화 (게임 종료 오류 방지)
               gameStatus: newGameStatus,
               score: newScore,
               wave: newWave,
@@ -1517,8 +1525,8 @@ export const useGame = () => {
               showWaveComplete: false,
               lastExpGained,
               damageTexts: updatedDamageTexts,
-              pendingLevelUps: levelUpCount > 0 ? levelUpCount - 1 : 0, // 레벨업 보상
-              pendingBonusRewards: bonusRewardCount > 0 ? bonusRewardCount - 1 : 0, // 웨이브 보너스 보상
+              pendingLevelUps: initialPendingLevelUps,
+              pendingBonusRewards: initialPendingBonusRewards,
             };
           } else {
             // 레벨업하지 않았을 때만 잠시 후 다음 웨이브로
@@ -1655,8 +1663,8 @@ export const useGame = () => {
           localStorage.setItem('roguelike-highscore', JSON.stringify(newHighScore));
         }
 
-        // 데이터 저장 (레벨업 보상 선택 시에만)
-        if (newGameStatus === 'choosing') {
+        // 데이터 저장 (레벨업 보상 선택 시에만, 이 코드 경로는 실제로 도달하지 않지만 안전을 위해 유지)
+        if ((newGameStatus as string) === 'choosing') {
           const newHighScore = Math.max(highScore, newScore);
           saveGameData({
             score: newScore,
