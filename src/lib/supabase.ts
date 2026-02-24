@@ -278,29 +278,15 @@ export async function updateProfileNickname(userId: string, nickname: string): P
     const n = String(nickname).trim().slice(0, 50);
     if (!n || n.length < 2) return { ok: false, error: '닉네임은 2자 이상 입력해 주세요.' };
 
-    const { data: updated, error: updateError } = await supabase
+    // upsert: 행이 없으면 INSERT, 있으면 UPDATE (id 기준 충돌 처리)
+    const { error } = await supabase
       .from(PROFILES_TABLE)
-      .update({ nickname: n })
-      .eq('id', userId)
-      .select('id')
-      .maybeSingle();
+      .upsert({ id: userId, nickname: n }, { onConflict: 'id' });
 
-    if (updateError) {
-      if (updateError.code === '23505') return { ok: false, error: '이미 사용 중인 닉네임입니다.' };
-      if (updateError.code === '23514') return { ok: false, error: '닉네임은 한글·영문·숫자·공백·-·_ 만 가능하며 2자 이상이어야 합니다.' };
-      return { ok: false, error: normalizeErrorMessage(updateError.message) };
-    }
-
-    // 2) UPDATE가 0행이면 프로필 행 없음 → INSERT
-    if (!updated) {
-      const { error: insertError } = await supabase
-        .from(PROFILES_TABLE)
-        .insert({ id: userId, nickname: n });
-      if (insertError) {
-        if (insertError.code === '23505') return { ok: false, error: '이미 사용 중인 닉네임입니다.' };
-        if (insertError.code === '23514') return { ok: false, error: '닉네임은 한글·영문·숫자·공백·-·_ 만 가능하며 2자 이상이어야 합니다.' };
-        return { ok: false, error: normalizeErrorMessage(insertError.message) };
-      }
+    if (error) {
+      if (error.code === '23505') return { ok: false, error: '이미 사용 중인 닉네임입니다.' };
+      if (error.code === '23514') return { ok: false, error: '닉네임은 한글·영문·숫자·공백·-·_ 만 가능하며 2자 이상이어야 합니다.' };
+      return { ok: false, error: normalizeErrorMessage(error.message) };
     }
     return { ok: true };
   } catch (e) {
@@ -309,10 +295,9 @@ export async function updateProfileNickname(userId: string, nickname: string): P
   }
 }
 
-/** 프로필 사진 업로드 (최대 90KB), 업로드 후 profiles.avatar_url 갱신 */
+/** 프로필 사진 업로드, 업로드 후 profiles.avatar_url 갱신 */
 export async function uploadAvatar(userId: string, file: File): Promise<UpdateProfileResult> {
   if (!supabase) return { ok: false, error: '네트워크 오류' };
-  if (file.size > AVATAR_MAX_BYTES) return { ok: false, error: `프로필 사진은 ${AVATAR_MAX_BYTES / 1000}KB 이하여야 합니다.` };
   const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
   if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return { ok: false, error: 'jpg, png, gif, webp만 가능합니다.' };
   try {

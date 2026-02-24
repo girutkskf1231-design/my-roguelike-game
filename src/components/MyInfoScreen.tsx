@@ -7,8 +7,42 @@ import { StatisticsContent } from '@/components/StatisticsScreen';
 import { Button } from '@/components/ui/button';
 import { X, User, Camera, LogOut, Pencil } from 'lucide-react';
 
-/** 프로필 사진 표시 최대 크기(px). 업로드 제한은 AVATAR_MAX_BYTES(90KB). */
+/** 프로필 사진 표시 최대 크기(px) */
 const MAX_AVATAR_PX = 300;
+/** 업로드 시 리사이즈 최대 해상도(px) */
+const UPLOAD_MAX_PX = 400;
+
+/** Canvas로 이미지를 리사이즈·압축해 AVATAR_MAX_BYTES 이하의 JPEG Blob 반환 */
+function resizeImageFile(file: File, maxPx: number, maxBytes: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height, 1));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      const tryQuality = (q: number) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { reject(new Error('변환 실패')); return; }
+            if (blob.size <= maxBytes || q <= 0.3) resolve(blob);
+            else tryQuality(Math.round((q - 0.1) * 10) / 10);
+          },
+          'image/jpeg',
+          q,
+        );
+      };
+      tryQuality(0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지 로드 실패')); };
+    img.src = url;
+  });
+}
 
 interface MyInfoScreenProps {
   onClose: () => void;
@@ -63,21 +97,35 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /** 파일 하나 검증 후 업로드 (input change / 드래그 드롭 공용) */
+  /** 파일 하나 검증 후 리사이즈·업로드 (input change / 드래그 드롭 공용) */
   const processAvatarFile = async (file: File | undefined) => {
     if (!file || !user?.id) return;
     setAvatarError(null);
-    if (file.size > AVATAR_MAX_BYTES) {
-      setAvatarError(`프로필 사진은 ${AVATAR_MAX_BYTES / 1000}KB 이하여야 합니다.`);
-      return;
-    }
+
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowed.includes(file.type)) {
       setAvatarError('jpg, png, gif, webp만 업로드할 수 있습니다.');
       return;
     }
+
     setAvatarUploading(true);
-    const result = await uploadAvatar(user.id, file);
+
+    let uploadFile: File;
+    // GIF는 애니메이션 보존을 위해 리사이즈 없이 원본 사용
+    if (file.type === 'image/gif' || file.size <= AVATAR_MAX_BYTES) {
+      uploadFile = file;
+    } else {
+      try {
+        const resized = await resizeImageFile(file, UPLOAD_MAX_PX, AVATAR_MAX_BYTES);
+        uploadFile = new File([resized], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+      } catch {
+        setAvatarError('이미지 최적화에 실패했습니다. 더 작은 이미지를 사용해 주세요.');
+        setAvatarUploading(false);
+        return;
+      }
+    }
+
+    const result = await uploadAvatar(user.id, uploadFile);
     setAvatarUploading(false);
     if (result.ok) {
       await refreshProfile();
@@ -327,9 +375,9 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
                   </Button>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs text-gray-400">프로필 사진 (최대 {AVATAR_MAX_BYTES / 1000}KB) · 클릭 또는 드래그</p>
+                  <p className="text-xs text-gray-400">jpg · png · gif · webp · 클릭 또는 드래그 (큰 이미지는 자동 최적화)</p>
                   {avatarError && <p className="text-xs text-red-400 mt-1">{avatarError}</p>}
-                  {avatarUploading && <p className="text-xs text-cyan-400 mt-1">업로드 중...</p>}
+                  {avatarUploading && <p className="text-xs text-cyan-400 mt-1">이미지 최적화 및 업로드 중...</p>}
                 </div>
               </div>
 
