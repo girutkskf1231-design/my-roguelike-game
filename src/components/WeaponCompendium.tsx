@@ -85,18 +85,28 @@ export const WeaponCompendium: React.FC<{ onBack?: () => void }> = ({ onBack }) 
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-slate-100 truncate">{w.name}</h3>
-                    <p className="mt-1 text-sm text-slate-400 line-clamp-2">{w.description}</p>
-                    <div className="mt-3 space-y-1">
-                      <div className="flex items-baseline gap-2 text-sm">
-                        <span className="text-slate-500">특수 효과:</span>
-                        <span className="text-amber-300/90">{w.special_effect}</span>
+                    <p className="mt-1 text-xs text-slate-400 line-clamp-2">{w.description}</p>
+                    <div className="mt-2 space-y-1.5">
+                      {/* 특수 효과: | 구분자로 분리해 뱃지로 표시 */}
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {w.special_effect.split('|').map((part, i) => (
+                          <span
+                            key={i}
+                            className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                              i === 0
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                : 'bg-slate-700/60 text-slate-300 border border-slate-600/40'
+                            }`}
+                          >
+                            {part.trim()}
+                          </span>
+                        ))}
                       </div>
-                      <div className="flex items-baseline gap-2 text-sm">
-                        <span className="text-slate-500">조합식:</span>
-                        <span className="text-emerald-300/90">
-                          {w.fusion_formula || '없음'}
-                        </span>
-                      </div>
+                      {w.fusion_formula && w.fusion_formula !== '없음' && (
+                        <div className="text-xs text-emerald-300/80 bg-emerald-900/20 border border-emerald-700/30 rounded px-2 py-1">
+                          🔗 {w.fusion_formula}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
