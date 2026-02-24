@@ -221,7 +221,7 @@ export async function getSession() {
 
 const PROFILES_TABLE = 'profiles';
 const AVATAR_BUCKET = 'avatars';
-const AVATAR_MAX_BYTES = 90000; // 90KB (90000px → 90KB로 해석)
+const AVATAR_MAX_BYTES = 300000; // 300KB — 품질 우선
 
 /** 로그인한 사용자의 프로필(닉네임·아바타·모바일 설정) 조회 */
 export async function getProfile(userId: string): Promise<AuthProfile | null> {

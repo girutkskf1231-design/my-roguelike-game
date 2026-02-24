@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { supabase, updateProfileNickname, uploadAvatar, checkNicknameAvailable, ensureProfile, AVATAR_MAX_BYTES } from '@/lib/supabase';
+import { supabase, updateProfileNickname, uploadAvatar, AVATAR_MAX_BYTES } from '@/lib/supabase';
 import { hasNicknameForbiddenChars, isInappropriateNickname } from '@/lib/nicknameBlocklist';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/contexts/ToastContext';
@@ -9,10 +9,10 @@ import { X, User, Camera, LogOut, Pencil } from 'lucide-react';
 
 /** 프로필 사진 표시 최대 크기(px) */
 const MAX_AVATAR_PX = 300;
-/** 업로드 시 리사이즈 최대 해상도(px) */
-const UPLOAD_MAX_PX = 400;
+/** 업로드 시 최대 해상도(px) — 품질 우선, 충분히 크게 유지 */
+const UPLOAD_MAX_PX = 600;
 
-/** Canvas로 이미지를 리사이즈·압축해 AVATAR_MAX_BYTES 이하의 JPEG Blob 반환 */
+/** Canvas로 이미지를 리사이즈·압축해 maxBytes 이하의 JPEG Blob 반환 (품질 우선) */
 function resizeImageFile(file: File, maxPx: number, maxBytes: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -26,18 +26,31 @@ function resizeImageFile(file: File, maxPx: number, maxBytes: number): Promise<B
       canvas.width = w;
       canvas.height = h;
       canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
-      const tryQuality = (q: number) => {
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) { reject(new Error('변환 실패')); return; }
-            if (blob.size <= maxBytes || q <= 0.3) resolve(blob);
-            else tryQuality(Math.round((q - 0.1) * 10) / 10);
-          },
-          'image/jpeg',
-          q,
-        );
-      };
-      tryQuality(0.85);
+
+      // 고품질(0.92)로 먼저 시도
+      canvas.toBlob((blob) => {
+        if (!blob) { reject(new Error('변환 실패')); return; }
+        if (blob.size <= maxBytes) { resolve(blob); return; }
+
+        // 크기 초과 시 이진 탐색으로 최고 품질 탐색 (0.7~0.88 범위, 최대 4회)
+        let lo = 0.7, hi = 0.88;
+        let best: Blob = blob;
+        const search = (depth: number) => {
+          const mid = Math.round(((lo + hi) / 2) * 100) / 100;
+          canvas.toBlob((b) => {
+            if (!b) { resolve(best); return; }
+            if (b.size <= maxBytes) {
+              best = b;
+              lo = mid;
+            } else {
+              hi = mid;
+            }
+            if (depth <= 0 || hi - lo < 0.03) { resolve(best); return; }
+            search(depth - 1);
+          }, 'image/jpeg', mid);
+        };
+        search(3);
+      }, 'image/jpeg', 0.92);
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지 로드 실패')); };
     img.src = url;
@@ -62,7 +75,6 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
   const ensuredOnce = useRef(false);
   const isMountedRef = useRef(true);
   const saveInFlightRef = useRef(false);
-  const cancelRequestedRef = useRef(false);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -142,7 +154,6 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
   const handleSaveNickname = async () => {
     if (!user?.id) return;
     if (saveInFlightRef.current) return;
-    cancelRequestedRef.current = false;
 
     const n = trimmedNickname;
     if (!n || n.length < 2) {
@@ -162,79 +173,35 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
       return;
     }
 
-    // 닉네임 변경(대소문자만 다른 경우)이면 중복 확인 생략, 아니면 확인
-    const skipDuplicateCheck = n.toLowerCase() === (currentProfileNickname ?? '').toLowerCase();
-    if (!skipDuplicateCheck) {
-      try {
-        const check = await checkNicknameAvailable(n);
-        if (!isMountedRef.current) return;
-        if (!check.available && !check.error) {
-          setNicknameError('이미 사용 중인 닉네임입니다.');
-          return;
-        }
-        if (!check.available && check.error) {
-          showToast('닉네임 확인을 건너뛰고 저장합니다.', 'info');
-        }
-      } catch (e) {
-        if (!isMountedRef.current) return;
-        if (cancelRequestedRef.current) return;
-        setNicknameError(
-          isAbortError(e)
-            ? '닉네임 확인 중 요청이 취소되었습니다. 다시 시도해 주세요.'
-            : '닉네임 확인 중 오류가 발생했습니다. 다시 시도해 주세요.'
-        );
-        return;
-      }
-      if (cancelRequestedRef.current) return;
-    }
-    if (cancelRequestedRef.current) return;
-
     saveInFlightRef.current = true;
     setNicknameError(null);
     setNicknameSaving(true);
 
-    const performSave = async (retryCount = 0): Promise<void> => {
-      if (cancelRequestedRef.current) {
-        saveInFlightRef.current = false;
-        if (isMountedRef.current) setNicknameSaving(false);
-        return;
+    try {
+      const result = await updateProfileNickname(user.id, n);
+      if (!isMountedRef.current) return;
+      if (result.ok) {
+        await refreshProfile();
+        if (!isMountedRef.current) return;
+        showToast('닉네임이 저장되었습니다.', 'success');
+        setIsEditingNickname(false);
+      } else {
+        setNicknameError(result.error ?? '저장에 실패했습니다.');
       }
-      try {
-        if (!profile) await ensureProfile(user.id, n);
-        if (!isMountedRef.current) return;
-        const result = await updateProfileNickname(user.id, n);
-        if (!isMountedRef.current) return;
-        if (result.ok) {
-          await refreshProfile();
-          if (!isMountedRef.current) return;
-          showToast('닉네임이 저장되었습니다.', 'success');
-          setIsEditingNickname(false);
-        } else {
-          setNicknameError(result.error ?? '저장에 실패했습니다.');
-        }
-      } catch (e) {
-        if (!isMountedRef.current) return;
-        if (isAbortError(e) && retryCount < 1) {
-          await new Promise((r) => setTimeout(r, 300));
-          if (!isMountedRef.current) return;
-          await performSave(retryCount + 1);
-          return;
-        }
-        const msg = isAbortError(e)
+    } catch (e) {
+      if (!isMountedRef.current) return;
+      setNicknameError(
+        isAbortError(e)
           ? '요청이 취소되었습니다. 다시 시도해 주세요.'
-          : '저장 중 오류가 발생했습니다. 다시 시도해 주세요.';
-        setNicknameError(msg);
-      } finally {
-        saveInFlightRef.current = false;
-        if (isMountedRef.current) setNicknameSaving(false);
-      }
-    };
-
-    await performSave();
+          : '저장 중 오류가 발생했습니다. 다시 시도해 주세요.'
+      );
+    } finally {
+      saveInFlightRef.current = false;
+      if (isMountedRef.current) setNicknameSaving(false);
+    }
   };
 
   const handleCancelNicknameEdit = () => {
-    cancelRequestedRef.current = true;
     setNickname(profile?.nickname ?? '');
     setNicknameError(null);
     setIsEditingNickname(false);
