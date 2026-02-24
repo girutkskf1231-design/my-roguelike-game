@@ -327,10 +327,10 @@ function App() {
                         <img
                           src={profile.avatar_url}
                           alt="프로필"
-                          className="w-6 h-6 rounded-full object-cover shrink-0 border border-cyan-400/50"
+                          className="w-4 h-4 rounded-full object-cover shrink-0 border border-cyan-400/50"
                         />
                       ) : (
-                        <span className="w-6 h-6 rounded-full bg-slate-600 border border-cyan-400/50 flex items-center justify-center shrink-0 text-xs">👤</span>
+                        <span className="w-4 h-4 rounded-full bg-slate-600 border border-cyan-400/50 flex items-center justify-center shrink-0 text-xs">👤</span>
                       )}
                       내 정보
                     </Button>
@@ -339,7 +339,7 @@ function App() {
                         <img
                           src={profile.avatar_url}
                           alt=""
-                          className="w-5 h-5 rounded-full object-cover shrink-0 border border-cyan-400/40"
+                          className="w-4 h-4 rounded-full object-cover shrink-0 border border-cyan-400/40"
                         />
                       )}
                       {profile?.nickname?.trim() || '닉네임 없음'}
@@ -905,7 +905,7 @@ function App() {
                   <p className="text-gray-300 text-sm shrink-0">게임이 일시 정지되었습니다</p>
                   <p className="text-xs text-gray-400 shrink-0">ESC: 계속 | I: 인벤토리</p>
                   {/* 모바일 전용: 조작 버튼 크기 (md 미만에서만 표시) */}
-                  <div className="block md:hidden flex flex-col gap-1 shrink-0">
+                  <div className="flex md:hidden flex-col gap-1 shrink-0">
                     <label htmlFor="mobile-button-scale" className="text-sm text-gray-300">
                       조작 버튼 크기
                     </label>

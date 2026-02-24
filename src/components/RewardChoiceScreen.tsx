@@ -248,9 +248,15 @@ const RewardChoiceScreenComponent = ({ wave, options, onSelect, pendingLevelUps 
 
         {/* 선택지 카드들 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {options.map((option, index) => (
+          {options.map((option, index) => {
+            const optionKey =
+              option.type === 'skill' ? `skill-${option.skill.id}` :
+              option.type === 'stat' ? `stat-${option.statName}-${index}` :
+              option.type === 'artifact' ? `artifact-${option.artifact.id}` :
+              `${option.type}-${option.weapon.id}-${index}`;
+            return (
             <Card
-              key={index}
+              key={optionKey}
               className={`bg-gradient-to-br from-slate-900 to-slate-800 border-4 ${getOptionColor(option)} 
                          hover:scale-105 transition-transform cursor-pointer shadow-2xl`}
               onClick={() => onSelect(option)}
@@ -283,7 +289,8 @@ const RewardChoiceScreenComponent = ({ wave, options, onSelect, pendingLevelUps 
                 </Button>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
 
         <div className="text-center mt-6 text-gray-400 text-sm">
