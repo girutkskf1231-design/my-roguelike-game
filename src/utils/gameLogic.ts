@@ -1240,9 +1240,11 @@ export const generateRewardOptions = (player: Player, _wave: number): RewardOpti
     const randomStat = stats[Math.floor(Math.random() * stats.length)];
     options.push({ type: 'stat', statName: randomStat, amount: 3 });
   } else if (roll < 0.7) {
-    // 스킬 (필터링된 availableSkills 재사용)
-    if (availableSkills.length > 0) {
-      const randomSkill = availableSkills[Math.floor(Math.random() * availableSkills.length)];
+    // 이미 선택된 스킬 ID를 제외한 나머지 스킬만 후보로
+    const usedSkillIds = options.filter(o => o.type === 'skill').map(o => (o as { type: 'skill'; skill: { id: string } }).skill.id);
+    const remainingSkills = availableSkills.filter(s => !usedSkillIds.includes(s.id));
+    if (remainingSkills.length > 0) {
+      const randomSkill = remainingSkills[Math.floor(Math.random() * remainingSkills.length)];
       options.push({ type: 'skill', skill: { ...randomSkill } });
     } else {
       // 스킬이 없으면 스텟

@@ -220,7 +220,7 @@ export const useGame = () => {
       saveGameData({
         score: newState.score,
         wave: newState.wave,
-        highScore: Math.max(prev.score, 0),
+        highScore: Math.max(highScore, newState.score),
         playerHealth: newPlayer.health,
         level: newPlayer.level,
         experience: newPlayer.experience,
@@ -410,24 +410,27 @@ export const useGame = () => {
             const isCritical = Math.random() * 100 < critChance;
             const baseDmg = (skill.damage || 30) + newPlayer.stats.strength * 2;
             setTimeout(() => {
-              setGameState((s) => ({
-                ...s,
-                projectiles: [
-                  ...s.projectiles,
-                  {
-                    position: {
-                      x: Math.random() * 700 + 50,
-                      y: -30,
+              setGameState((s) => {
+                if (s.gameStatus !== 'playing') return s;
+                return {
+                  ...s,
+                  projectiles: [
+                    ...s.projectiles,
+                    {
+                      position: {
+                        x: Math.random() * 700 + 50,
+                        y: -30,
+                      },
+                      velocity: { x: 0, y: 12 },
+                      width: 30,
+                      height: 30,
+                      damage: isCritical ? baseDmg * 2 : baseDmg,
+                      fromPlayer: true,
+                      isCritical,
                     },
-                    velocity: { x: 0, y: 12 },
-                    width: 30,
-                    height: 30,
-                    damage: isCritical ? baseDmg * 2 : baseDmg,
-                    fromPlayer: true,
-                    isCritical,
-                  },
-                ],
-              }));
+                  ],
+                };
+              });
             }, i * 200);
           }
           break;
@@ -719,27 +722,30 @@ export const useGame = () => {
             const angle = (i * 360) / 8 + 22.5;
             const rad = (angle * Math.PI) / 180;
             setTimeout(() => {
-              setGameState((s) => ({
-                ...s,
-                projectiles: [
-                  ...s.projectiles,
-                  {
-                    position: {
-                      x: s.player.position.x + s.player.width / 2,
-                      y: s.player.position.y + s.player.height / 2,
+              setGameState((s) => {
+                if (s.gameStatus !== 'playing') return s;
+                return {
+                  ...s,
+                  projectiles: [
+                    ...s.projectiles,
+                    {
+                      position: {
+                        x: s.player.position.x + s.player.width / 2,
+                        y: s.player.position.y + s.player.height / 2,
+                      },
+                      velocity: {
+                        x: Math.cos(rad) * 9,
+                        y: Math.sin(rad) * 9,
+                      },
+                      width: 16,
+                      height: 16,
+                      damage: isCritical ? baseDmg * 2 : baseDmg,
+                      fromPlayer: true,
+                      isCritical,
                     },
-                    velocity: {
-                      x: Math.cos(rad) * 9,
-                      y: Math.sin(rad) * 9,
-                    },
-                    width: 16,
-                    height: 16,
-                    damage: isCritical ? baseDmg * 2 : baseDmg,
-                    fromPlayer: true,
-                    isCritical,
-                  },
-                ],
-              }));
+                  ],
+                };
+              });
             }, i * 50);
           }
           break;
@@ -934,34 +940,37 @@ export const useGame = () => {
             
             for (let i = 0; i < attackCount; i++) {
               setTimeout(() => {
-                setGameState((state) => ({
-                  ...state,
-                  projectiles: [
-                    ...state.projectiles,
-                    {
-                      position: {
-                        x: state.player.position.x + (state.player.facingRight ? state.player.width : -projWidth),
-                        y: state.player.position.y + state.player.height / 2 - projHeight / 2,
+                setGameState((state) => {
+                  if (state.gameStatus !== 'playing') return state;
+                  return {
+                    ...state,
+                    projectiles: [
+                      ...state.projectiles,
+                      {
+                        position: {
+                          x: state.player.position.x + (state.player.facingRight ? state.player.width : -projWidth),
+                          y: state.player.position.y + state.player.height / 2 - projHeight / 2,
+                        },
+                        velocity: {
+                          x: state.player.facingRight ? 8 : -8,
+                          y: 0,
+                        },
+                        width: projWidth,
+                        height: projHeight,
+                        damage: weaponDamage,
+                        fromPlayer: true,
+                        isCritical,
+                        element: weaponElement,
+                        elementalDamage: weaponElementalDamage,
+                        piercing: weapon.piercing,
+                        lifetime: weapon.projectileLifetime || 30,
+                        createdAt: Date.now(),
+                        shape: weapon.projectileShape || 'default',
+                        weaponId: weapon.id,
                       },
-                      velocity: {
-                        x: state.player.facingRight ? 8 : -8,
-                        y: 0,
-                      },
-                      width: projWidth,
-                      height: projHeight,
-                      damage: weaponDamage,
-                      fromPlayer: true,
-                      isCritical,
-                      element: weaponElement,
-                      elementalDamage: weaponElementalDamage,
-                      piercing: weapon.piercing,
-                      lifetime: weapon.projectileLifetime || 30,
-                      createdAt: Date.now(),
-                      shape: weapon.projectileShape || 'default',
-                      weaponId: weapon.id,
-                    },
-                  ],
-                }));
+                    ],
+                  };
+                });
               }, i * 100);
             }
             const useSetTimeoutForMultiHit = ['dual_sword', 'shadow_dual_sword', 'demon_twin_blades'].includes(weapon.id);
@@ -1603,7 +1612,7 @@ export const useGame = () => {
           newDamageTexts.push({
             id: `${Date.now()}-fall`,
             position: {
-              x: CANVAS_HEIGHT / 2,
+              x: CANVAS_WIDTH / 2,
               y: CANVAS_HEIGHT / 2,
             },
             damage: fallDamage,
@@ -1626,7 +1635,7 @@ export const useGame = () => {
             newPlayer.velocity.x = 0;
           } else {
             // 플랫폼이 없으면 중앙 상단으로
-            newPlayer.position.x = CANVAS_HEIGHT / 2;
+            newPlayer.position.x = CANVAS_WIDTH / 2;
             newPlayer.position.y = 100;
             newPlayer.velocity.y = 0;
             newPlayer.velocity.x = 0;
