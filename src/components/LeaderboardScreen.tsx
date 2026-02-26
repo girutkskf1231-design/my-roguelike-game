@@ -5,9 +5,9 @@ import { Trophy, RefreshCw, X, UserCheck } from 'lucide-react';
 import { getClassDisplayName } from '@/data/classes';
 import { useAuth } from '@/hooks/useAuth';
 
-// 모듈 수준 캐시 (60초 TTL)
+// 모듈 수준 캐시 (5분 TTL)
 let leaderboardCache: { data: GameScoreRow[]; fetchedAt: number } | null = null;
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 300_000;
 
 const NICKNAME_KEY = 'roguelike-player-name';
 
@@ -51,21 +51,29 @@ export function LeaderboardScreen({ onClose, embedded }: LeaderboardScreenProps)
   const [loadError, setLoadError] = useState(false);
 
   const load = async (forceRefresh = false) => {
-    // 캐시가 유효하고 강제 새로고침이 아닌 경우 캐시 데이터 사용
-    if (!forceRefresh && leaderboardCache && Date.now() - leaderboardCache.fetchedAt < CACHE_TTL_MS) {
+    const cacheValid = leaderboardCache && Date.now() - leaderboardCache.fetchedAt < CACHE_TTL_MS;
+
+    // 캐시 있으면 즉시 표시 (로딩 없이)
+    if (leaderboardCache) {
       setScores(leaderboardCache.data);
       setLoading(false);
-      return;
     }
-    setLoading(true);
+
+    // 캐시 유효하고 강제 새로고침이 아니면 네트워크 요청 생략
+    if (!forceRefresh && cacheValid) return;
+
+    // 백그라운드 또는 강제 새로고침
+    if (!leaderboardCache) setLoading(true);
     setLoadError(false);
     try {
       const list = await fetchLeaderboard(30);
       leaderboardCache = { data: list, fetchedAt: Date.now() };
       setScores(list);
     } catch {
-      setLoadError(true);
-      setScores([]);
+      if (!leaderboardCache) {
+        setLoadError(true);
+        setScores([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -179,12 +187,14 @@ export function LeaderboardScreen({ onClose, embedded }: LeaderboardScreenProps)
                       <td className="py-2 pr-2">
                         <span
                           className={
-                            row.difficulty === 'hard'
-                              ? 'text-red-400'
-                              : 'text-blue-400'
+                            row.difficulty === 'hell'
+                              ? 'text-purple-400'
+                              : row.difficulty === 'hard'
+                                ? 'text-red-400'
+                                : 'text-blue-400'
                           }
                         >
-                          {row.difficulty === 'hard' ? '하드' : '노말'}
+                          {row.difficulty === 'hell' ? '💀헬' : row.difficulty === 'hard' ? '하드' : '노말'}
                         </span>
                       </td>
                       <td className="py-2 pr-2 text-gray-400">

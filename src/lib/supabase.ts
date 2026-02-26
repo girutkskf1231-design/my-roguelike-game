@@ -55,10 +55,23 @@ export async function fetchLeaderboard(limit = 20): Promise<GameScoreRow[]> {
     const { data, error } = await supabase
       .from(TABLE)
       .select('id, player_name, score, wave, difficulty, class_type, created_at, play_duration_seconds')
+      .order('play_duration_seconds', { ascending: true, nullsLast: true })
       .order('score', { ascending: false })
+      .order('wave', { ascending: false })
       .limit(limit);
     if (error) return [];
-    return (data ?? []) as GameScoreRow[];
+    // 클라이언트에서 난이도 우선순위 정렬: hell > hard > normal
+    const diffRank = (d?: string) => d === 'hell' ? 0 : d === 'hard' ? 1 : 2;
+    const sorted = (data ?? [] as GameScoreRow[]).sort((a, b) => {
+      const dr = diffRank((a as GameScoreRow).difficulty) - diffRank((b as GameScoreRow).difficulty);
+      if (dr !== 0) return dr;
+      const durA = (a as GameScoreRow).play_duration_seconds ?? Infinity;
+      const durB = (b as GameScoreRow).play_duration_seconds ?? Infinity;
+      if (durA !== durB) return durA - durB;
+      if ((b as GameScoreRow).score !== (a as GameScoreRow).score) return (b as GameScoreRow).score - (a as GameScoreRow).score;
+      return (b as GameScoreRow).wave - (a as GameScoreRow).wave;
+    });
+    return sorted as GameScoreRow[];
   } catch {
     return [];
   }
@@ -295,8 +308,15 @@ export async function updateProfileNickname(userId: string, nickname: string): P
   }
 }
 
-/** 프로필 사진 업로드, 업로드 후 profiles.avatar_url 갱신 */
-export async function uploadAvatar(userId: string, file: File): Promise<UpdateProfileResult> {
+export interface UploadAvatarResult {
+  ok: boolean;
+  /** 업로드 성공 시 public URL */
+  url?: string;
+  error?: string;
+}
+
+/** 프로필 사진 업로드 후 profiles.avatar_url 갱신. 성공 시 url 반환 (호출측 로컬 상태 즉시 반영용) */
+export async function uploadAvatar(userId: string, file: File): Promise<UploadAvatarResult> {
   if (!supabase) return { ok: false, error: '네트워크 오류' };
   const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
   if (!['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return { ok: false, error: 'jpg, png, gif, webp만 가능합니다.' };
@@ -305,9 +325,10 @@ export async function uploadAvatar(userId: string, file: File): Promise<UpdatePr
     const { error: uploadError } = await supabase.storage.from(AVATAR_BUCKET).upload(path, file, { upsert: true });
     if (uploadError) return { ok: false, error: normalizeErrorMessage(uploadError.message) };
     const { data: urlData } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
-    const { error: updateError } = await supabase.from(PROFILES_TABLE).update({ avatar_url: urlData.publicUrl }).eq('id', userId);
+    const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+    const { error: updateError } = await supabase.from(PROFILES_TABLE).update({ avatar_url: publicUrl }).eq('id', userId);
     if (updateError) return { ok: false, error: normalizeErrorMessage(updateError.message) };
-    return { ok: true };
+    return { ok: true, url: publicUrl };
   } catch {
     return { ok: false, error: '업로드에 실패했습니다.' };
   }

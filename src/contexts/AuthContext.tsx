@@ -10,6 +10,8 @@ export interface AuthContextValue {
   signIn: (email: string, password: string) => ReturnType<typeof authSignIn>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  /** DB 재조회 없이 로컬 profile 상태만 즉시 업데이트 */
+  patchProfile: (partial: Partial<AuthProfile>) => void;
   ensureProfileForCurrentUser: () => Promise<boolean>;
 }
 
@@ -99,6 +101,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user?.id) await loadProfile(user.id);
   }, [user?.id, loadProfile]);
 
+  const patchProfile = useCallback((partial: Partial<AuthProfile>) => {
+    setProfile(prev => prev ? { ...prev, ...partial } : prev);
+  }, []);
+
   const ensureProfileForCurrentUser = useCallback(async (): Promise<boolean> => {
     if (!user?.id) return false;
     const metaNick = (user.user_metadata?.nickname as string | undefined)?.trim();
@@ -117,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signOut,
     refreshProfile,
+    patchProfile,
     ensureProfileForCurrentUser,
   };
 

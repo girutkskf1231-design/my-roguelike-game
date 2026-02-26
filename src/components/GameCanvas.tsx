@@ -104,15 +104,17 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     }
 
     let lastStaticWave = -1;
+    let lastPlatformsRef: GameState['platforms'] | null = null;
 
     const draw = (state: GameState) => {
       ctx.shadowBlur = 0;
       ctx.shadowColor = 'transparent';
       ctx.globalAlpha = 1;
       const t = performance.now();
-      if (state.wave !== lastStaticWave) {
+      if (state.wave !== lastStaticWave || state.platforms !== lastPlatformsRef) {
         drawStaticLayer(state);
         lastStaticWave = state.wave;
+        lastPlatformsRef = state.platforms;
       }
       ctx.drawImage(staticCanvas, 0, 0);
 
@@ -528,7 +530,49 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
           ctx.fillStyle = weapon.id === 'heaven_crossbow' ? '#fef08a' : '#fbbf24';
           ctx.fillRect(bowX + (dir > 0 ? 16 : -16), bowY, 8 * dir, 1);
         }
-      } else if (weapon.id === 'double_bow' || weapon.id === 'artemis_double_bow' || weapon.id === 'multi_heaven_bow') {
+      } else if (weapon.id === 'multi_heaven_bow') {
+        // 천상의 다중궁 - 신성한 황금빛 7연발 활
+        const tHeavy = performance.now();
+        const glow = 0.6 + Math.sin(tHeavy * 0.008) * 0.4;
+        ctx.shadowBlur = 12 * glow;
+        ctx.shadowColor = '#fde68a';
+        // 7개의 궁 레이어
+        for (let o = -3; o <= 3; o++) {
+          ctx.globalAlpha = 0.3 + Math.abs(o) * 0.05;
+          ctx.strokeStyle = o === 0 ? '#fef9c3' : '#fbbf24';
+          ctx.lineWidth = o === 0 ? 2.5 : 1.5;
+          ctx.beginPath();
+          ctx.arc(bowX + (dir > 0 ? 10 : -10), bowY + o * 2.8, 10, player.facingRight ? -Math.PI/2 : Math.PI/2, player.facingRight ? Math.PI/2 : -Math.PI/2);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        // 중앙 신성한 별 장식
+        ctx.fillStyle = '#fffbeb';
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = '#fde047';
+        ctx.beginPath();
+        const starCx = bowX + (dir > 0 ? 3 : -3);
+        for (let si = 0; si < 4; si++) {
+          const ang = (Math.PI / 2) * si;
+          const r = 3.5;
+          if (si === 0) ctx.moveTo(starCx + Math.cos(ang) * r, bowY + Math.sin(ang) * r);
+          else ctx.lineTo(starCx + Math.cos(ang) * r, bowY + Math.sin(ang) * r);
+          ctx.lineTo(starCx + Math.cos(ang + Math.PI / 4) * 1.5, bowY + Math.sin(ang + Math.PI / 4) * 1.5);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        if (player.isAttacking) {
+          ctx.globalAlpha = 0.8;
+          ctx.strokeStyle = '#fef9c3';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(bowX + (dir > 0 ? 3 : -3), bowY - 8);
+          ctx.lineTo(bowX + (dir > 0 ? 3 : -3), bowY + 8);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+      } else if (weapon.id === 'double_bow' || weapon.id === 'artemis_double_bow') {
         // 연발궁 / 아르테미스의 쌍궁 - 두 개의 활대
         for (let o = 0; o < 2; o++) {
           const off = o * 4 - 2;
@@ -717,20 +761,289 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     const boss = state.boss;
     const bx = boss.position.x;
     const by = boss.position.y;
+    const isHellFinalBoss = state.difficulty === 'hell' && state.wave >= 500;
 
+    // 보스 색상 (일반/하드 모드용, 헬 모드는 별도 렌더링)
     const patternColors = [
-      { body: '#ef4444', dark: '#991b1b', glow: '#fca5a5' }, // 빨강
-      { body: '#8b5cf6', dark: '#6d28d9', glow: '#c4b5fd' }, // 보라
-      { body: '#f59e0b', dark: '#d97706', glow: '#fcd34d' }, // 주황
-      { body: '#10b981', dark: '#047857', glow: '#6ee7b7' }, // 초록
-      { body: '#3b82f6', dark: '#1e40af', glow: '#93c5fd' }, // 파랑
-      { body: '#ec4899', dark: '#be185d', glow: '#f9a8d4' }, // 핑크
-      { body: '#06b6d4', dark: '#0e7490', glow: '#67e8f9' }, // 시안
-      { body: '#f43f5e', dark: '#be123c', glow: '#fb7185' }, // 장미
-      { body: '#8b5cf6', dark: '#6d28d9', glow: '#c4b5fd' }, // 바이올렛
-      { body: '#eab308', dark: '#a16207', glow: '#fde047' }, // 노랑
+      { body: '#ef4444', dark: '#991b1b', glow: '#fca5a5' },
+      { body: '#8b5cf6', dark: '#6d28d9', glow: '#c4b5fd' },
+      { body: '#f59e0b', dark: '#d97706', glow: '#fcd34d' },
+      { body: '#10b981', dark: '#047857', glow: '#6ee7b7' },
+      { body: '#3b82f6', dark: '#1e40af', glow: '#93c5fd' },
+      { body: '#ec4899', dark: '#be185d', glow: '#f9a8d4' },
+      { body: '#06b6d4', dark: '#0e7490', glow: '#67e8f9' },
+      { body: '#f43f5e', dark: '#be123c', glow: '#fb7185' },
+      { body: '#8b5cf6', dark: '#6d28d9', glow: '#c4b5fd' },
+      { body: '#eab308', dark: '#a16207', glow: '#fde047' },
     ];
     const bossColors = patternColors[boss.currentPattern % patternColors.length];
+
+    // 웨이브 클리어 연출 중에는 보스와 투사체 숨김
+    if (!state.showWaveComplete) {
+
+    // ====== 헬 모드 최종 보스 렌더링 ======
+    if (isHellFinalBoss) {
+      const pulse = 0.5 + Math.sin(t * 0.005) * 0.5;
+      const fastPulse = 0.5 + Math.sin(t * 0.015) * 0.5;
+
+      // 외부 다중 후광 (지옥불)
+      for (let i = 5; i > 0; i--) {
+        ctx.globalAlpha = 0.08 * i * pulse;
+        const glowColor = i % 2 === 0 ? '#7c3aed' : '#dc2626';
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = glowColor;
+        ctx.beginPath();
+        ctx.arc(bx + boss.width / 2, by + boss.height / 2, boss.width * 0.8 + i * 12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // 촉수/체인 (8개 방향)
+      ctx.strokeStyle = '#4c0519';
+      ctx.lineWidth = 4;
+      for (let ti = 0; ti < 8; ti++) {
+        const ang = (Math.PI * 2 / 8) * ti + t * 0.002;
+        const len = 35 + Math.sin(t * 0.006 + ti) * 10;
+        ctx.globalAlpha = 0.6;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = '#dc2626';
+        ctx.beginPath();
+        ctx.moveTo(bx + boss.width / 2, by + boss.height / 2);
+        ctx.lineTo(bx + boss.width / 2 + Math.cos(ang) * len, by + boss.height / 2 + Math.sin(ang) * len);
+        ctx.stroke();
+        // 촉수 끝 구체
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(bx + boss.width / 2 + Math.cos(ang) * len, by + boss.height / 2 + Math.sin(ang) * len, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+
+      // 거대한 날개 (어둠의 날개)
+      ctx.fillStyle = '#1c0a2e';
+      // 왼쪽 날개
+      ctx.beginPath();
+      ctx.moveTo(bx + 5, by + 30);
+      ctx.lineTo(bx - 45, by - 10);
+      ctx.lineTo(bx - 55, by + 20);
+      ctx.lineTo(bx - 40, by + 55);
+      ctx.lineTo(bx - 20, by + 65);
+      ctx.lineTo(bx + 5, by + 50);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#7c3aed';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // 오른쪽 날개
+      ctx.fillStyle = '#1c0a2e';
+      ctx.beginPath();
+      ctx.moveTo(bx + boss.width - 5, by + 30);
+      ctx.lineTo(bx + boss.width + 45, by - 10);
+      ctx.lineTo(bx + boss.width + 55, by + 20);
+      ctx.lineTo(bx + boss.width + 40, by + 55);
+      ctx.lineTo(bx + boss.width + 20, by + 65);
+      ctx.lineTo(bx + boss.width - 5, by + 50);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#7c3aed';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 날개 맥 (빛나는 라인)
+      ctx.strokeStyle = `rgba(124,58,237,${0.4 + pulse * 0.4})`;
+      ctx.lineWidth = 1.5;
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = '#7c3aed';
+      for (let wi = 0; wi < 3; wi++) {
+        const wt = wi / 3;
+        ctx.beginPath();
+        ctx.moveTo(bx + 5, by + 35 + wi * 6);
+        ctx.lineTo(bx - 35 - wi * 5, by + 15 + wi * 15);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(bx + boss.width - 5, by + 35 + wi * 6);
+        ctx.lineTo(bx + boss.width + 35 + wi * 5, by + 15 + wi * 15);
+        ctx.stroke();
+        void wt;
+      }
+      ctx.shadowBlur = 0;
+
+      // 다리 (뼈 발톱)
+      ctx.fillStyle = '#2d1b69';
+      ctx.fillRect(bx + 8, by + 75, 18, 25);
+      ctx.fillRect(bx + boss.width - 26, by + 75, 18, 25);
+      // 발톱 (날카로운)
+      ctx.fillStyle = '#dc2626';
+      for (let ci = 0; ci < 4; ci++) {
+        ctx.beginPath();
+        ctx.moveTo(bx + 8 + ci * 4, by + 98);
+        ctx.lineTo(bx + 6 + ci * 4, by + 106);
+        ctx.lineTo(bx + 10 + ci * 4, by + 100);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(bx + boss.width - 26 + ci * 4, by + 98);
+        ctx.lineTo(bx + boss.width - 28 + ci * 4, by + 106);
+        ctx.lineTo(bx + boss.width - 24 + ci * 4, by + 100);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // 몸통 (어둠의 갑옷)
+      const bodyGrad = ctx.createLinearGradient(bx, by + 20, bx + boss.width, by + boss.height);
+      bodyGrad.addColorStop(0, '#1a0a2e');
+      bodyGrad.addColorStop(0.5, '#2d1b69');
+      bodyGrad.addColorStop(1, '#1a0a2e');
+      ctx.fillStyle = bodyGrad;
+      ctx.fillRect(bx + 3, by + 25, boss.width - 6, 55);
+
+      // 갑옷 장식 (붉은 균열)
+      ctx.strokeStyle = `rgba(220,38,38,${0.6 + fastPulse * 0.4})`;
+      ctx.lineWidth = 2;
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#dc2626';
+      for (let ri = 0; ri < 5; ri++) {
+        ctx.beginPath();
+        ctx.moveTo(bx + 12 + ri * 10, by + 32);
+        ctx.lineTo(bx + 8 + ri * 10, by + 52);
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+
+      // 핵심 에너지 구체 (가슴)
+      const coreR = 10 + fastPulse * 3;
+      ctx.globalAlpha = 0.9;
+      const coreGrad = ctx.createRadialGradient(bx + boss.width / 2, by + 48, 0, bx + boss.width / 2, by + 48, coreR);
+      coreGrad.addColorStop(0, '#ffffff');
+      coreGrad.addColorStop(0.3, '#dc2626');
+      coreGrad.addColorStop(0.7, '#7c3aed');
+      coreGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = coreGrad;
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = '#dc2626';
+      ctx.beginPath();
+      ctx.arc(bx + boss.width / 2, by + 48, coreR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+
+      // 팔 (뼈와 갑옷)
+      ctx.fillStyle = '#2d1b69';
+      ctx.fillRect(bx - 12, by + 28, 15, 30);
+      ctx.fillRect(bx + boss.width - 3, by + 28, 15, 30);
+      // 팔 뼈 장식
+      ctx.fillStyle = '#4c0519';
+      ctx.fillRect(bx - 8, by + 35, 7, 3);
+      ctx.fillRect(bx - 8, by + 44, 7, 3);
+      ctx.fillRect(bx + boss.width + 1, by + 35, 7, 3);
+      ctx.fillRect(bx + boss.width + 1, by + 44, 7, 3);
+
+      // 머리 (두개골 형태)
+      const headGrad = ctx.createLinearGradient(bx + 12, by - 5, bx + boss.width - 12, by + 28);
+      headGrad.addColorStop(0, '#1a0a2e');
+      headGrad.addColorStop(0.5, '#2d1b69');
+      headGrad.addColorStop(1, '#1a0a2e');
+      ctx.fillStyle = headGrad;
+      ctx.beginPath();
+      ctx.arc(bx + boss.width / 2, by + 12, 20, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 거대한 뿔 (3쌍)
+      ctx.fillStyle = '#dc2626';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#dc2626';
+      // 중앙 큰 뿔
+      ctx.beginPath();
+      ctx.moveTo(bx + boss.width / 2 - 6, by + 2);
+      ctx.lineTo(bx + boss.width / 2, by - 28);
+      ctx.lineTo(bx + boss.width / 2 + 6, by + 2);
+      ctx.closePath();
+      ctx.fill();
+      // 옆 뿔
+      ctx.fillStyle = '#7c3aed';
+      ctx.beginPath();
+      ctx.moveTo(bx + 14, by + 4);
+      ctx.lineTo(bx + 8, by - 18);
+      ctx.lineTo(bx + 20, by + 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(bx + boss.width - 14, by + 4);
+      ctx.lineTo(bx + boss.width - 8, by - 18);
+      ctx.lineTo(bx + boss.width - 20, by + 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // 6개의 눈 (지옥의 시선)
+      const eyePositions = [
+        { x: bx + boss.width / 2 - 8, y: by + 10 },
+        { x: bx + boss.width / 2 + 8, y: by + 10 },
+        { x: bx + boss.width / 2 - 14, y: by + 18 },
+        { x: bx + boss.width / 2 + 14, y: by + 18 },
+        { x: bx + boss.width / 2 - 5, y: by + 22 },
+        { x: bx + boss.width / 2 + 5, y: by + 22 },
+      ];
+      eyePositions.forEach((ep, ei) => {
+        const eyeGlow = 0.5 + Math.sin(t * 0.008 + ei) * 0.5;
+        ctx.shadowBlur = 12 * eyeGlow;
+        ctx.shadowColor = '#dc2626';
+        ctx.fillStyle = '#fee2e2';
+        ctx.beginPath();
+        ctx.arc(ep.x, ep.y, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.arc(ep.x, ep.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#7c3aed';
+        ctx.beginPath();
+        ctx.arc(ep.x, ep.y, 1, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.shadowBlur = 0;
+
+      // 입 (지옥의 아가리)
+      ctx.fillStyle = '#0f0620';
+      ctx.beginPath();
+      ctx.arc(bx + boss.width / 2, by + 23, 7, 0, Math.PI);
+      ctx.fill();
+      // 이빨
+      ctx.fillStyle = '#dc2626';
+      for (let ti2 = 0; ti2 < 5; ti2++) {
+        ctx.beginPath();
+        ctx.moveTo(bx + boss.width / 2 - 6 + ti2 * 3, by + 23);
+        ctx.lineTo(bx + boss.width / 2 - 5 + ti2 * 3, by + 28);
+        ctx.lineTo(bx + boss.width / 2 - 4 + ti2 * 3, by + 23);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // 공격 준비 시 폭발 이펙트
+      if (boss.patternCooldown < 15) {
+        ctx.globalAlpha = 0.4 + fastPulse * 0.4;
+        const explGrad = ctx.createRadialGradient(bx + boss.width / 2, by + boss.height / 2, 0, bx + boss.width / 2, by + boss.height / 2, 60);
+        explGrad.addColorStop(0, '#dc2626');
+        explGrad.addColorStop(0.5, '#7c3aed');
+        explGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = explGrad;
+        ctx.beginPath();
+        ctx.arc(bx + boss.width / 2, by + boss.height / 2, 60, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      // 몸통 테두리 (빛나는)
+      ctx.strokeStyle = `rgba(124,58,237,${0.6 + pulse * 0.4})`;
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#7c3aed';
+      ctx.strokeRect(bx + 3, by + 20, boss.width - 6, boss.height - 20);
+      ctx.shadowBlur = 0;
+
+    } else {
+    // ====== 일반 보스 렌더링 ======
 
     ctx.globalAlpha = 0.3;
     for (let i = 3; i > 0; i--) {
@@ -875,6 +1188,7 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     ctx.strokeStyle = bossColors.dark;
     ctx.lineWidth = 3;
     ctx.strokeRect(bx + 5, by, 50, 80);
+    } // end of normal boss rendering
 
     state.projectiles.slice(0, MAX_PROJECTILES_RENDER).forEach((proj) => {
       const projCenterX = proj.position.x + proj.width / 2;
@@ -991,6 +1305,56 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
           ctx.arc(projCenterX, projCenterY, proj.width / 4, 0, Math.PI * 2);
           ctx.fill();
           ctx.shadowBlur = 0;
+          return;
+        }
+
+        // 천상의 다중궁 - 신성한 빛의 화살
+        if (proj.weaponId === 'multi_heaven_bow') {
+          const t2 = performance.now();
+          const pulse = 0.7 + Math.sin(t2 * 0.012 + projCenterX * 0.05) * 0.3;
+          // 외부 후광
+          ctx.shadowBlur = 20;
+          ctx.shadowColor = '#fde68a';
+          ctx.globalAlpha = 0.25 * pulse;
+          ctx.fillStyle = '#fef9c3';
+          ctx.beginPath();
+          ctx.arc(projCenterX, projCenterY, proj.width * 1.4, 0, Math.PI * 2);
+          ctx.fill();
+          // 날개 형태 궤적
+          ctx.globalAlpha = 0.5 * pulse;
+          ctx.fillStyle = '#fbbf24';
+          const dir = proj.velocity.x >= 0 ? 1 : -1;
+          ctx.beginPath();
+          ctx.moveTo(projCenterX, projCenterY);
+          ctx.lineTo(projCenterX - dir * proj.width * 1.8, projCenterY - proj.height * 0.6);
+          ctx.lineTo(projCenterX - dir * proj.width * 1.2, projCenterY);
+          ctx.lineTo(projCenterX - dir * proj.width * 1.8, projCenterY + proj.height * 0.6);
+          ctx.closePath();
+          ctx.fill();
+          // 신성한 핵심 - 별 모양
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = '#fffbeb';
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = '#fde047';
+          ctx.beginPath();
+          for (let si = 0; si < 5; si++) {
+            const outerR = proj.width * 0.55;
+            const innerR = proj.width * 0.25;
+            const outerAngle = (Math.PI * 2 / 5) * si - Math.PI / 2;
+            const innerAngle = outerAngle + Math.PI / 5;
+            if (si === 0) ctx.moveTo(projCenterX + Math.cos(outerAngle) * outerR, projCenterY + Math.sin(outerAngle) * outerR);
+            else ctx.lineTo(projCenterX + Math.cos(outerAngle) * outerR, projCenterY + Math.sin(outerAngle) * outerR);
+            ctx.lineTo(projCenterX + Math.cos(innerAngle) * innerR, projCenterY + Math.sin(innerAngle) * innerR);
+          }
+          ctx.closePath();
+          ctx.fill();
+          // 중심 빛점
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(projCenterX, projCenterY, proj.width * 0.18, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = 1;
           return;
         }
         
@@ -1269,22 +1633,23 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
     ctx.strokeRect(px - 5, py - 18, player.width + 10, 10);
 
     const bossHealthPercent = (boss.health / boss.maxHealth) * 100;
-    const bossBarWidth = 220;
-    const bossBarHeight = 14;
+    const bossBarWidth = isHellFinalBoss ? 280 : 220;
+    const bossBarHeight = isHellFinalBoss ? 16 : 14;
     const bossBarX = bx + boss.width / 2 - bossBarWidth / 2;
-    const bossBarY = by - 35;
+    const bossBarY = isHellFinalBoss ? by - 45 : by - 35;
 
     ctx.fillStyle = '#1f2937';
     ctx.fillRect(bossBarX, bossBarY, bossBarWidth, bossBarHeight);
 
-    const bossHealthGradient = ctx.createLinearGradient(
-      bossBarX,
-      bossBarY,
-      bossBarX,
-      bossBarY + bossBarHeight
-    );
-    bossHealthGradient.addColorStop(0, bossColors.glow);
-    bossHealthGradient.addColorStop(1, bossColors.body);
+    const bossHealthGradient = ctx.createLinearGradient(bossBarX, bossBarY, bossBarX, bossBarY + bossBarHeight);
+    if (isHellFinalBoss) {
+      bossHealthGradient.addColorStop(0, '#dc2626');
+      bossHealthGradient.addColorStop(0.5, '#7c3aed');
+      bossHealthGradient.addColorStop(1, '#4c0519');
+    } else {
+      bossHealthGradient.addColorStop(0, bossColors.glow);
+      bossHealthGradient.addColorStop(1, bossColors.body);
+    }
     ctx.fillStyle = bossHealthGradient;
     ctx.fillRect(bossBarX, bossBarY, (bossBarWidth * bossHealthPercent) / 100, bossBarHeight);
 
@@ -1301,16 +1666,16 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
       ctx.stroke();
     }
 
-    ctx.strokeStyle = '#000000';
+    ctx.strokeStyle = isHellFinalBoss ? '#7c3aed' : '#000000';
     ctx.lineWidth = 3;
     ctx.strokeRect(bossBarX, bossBarY, bossBarWidth, bossBarHeight);
 
     ctx.shadowBlur = 10;
-    ctx.shadowColor = bossColors.glow;
+    ctx.shadowColor = isHellFinalBoss ? '#dc2626' : bossColors.glow;
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('👹 BOSS 👹', bx + boss.width / 2, bossBarY - 8);
+    ctx.fillText(isHellFinalBoss ? '☠️ 지옥의 군주 ☠️' : '👹 BOSS 👹', bx + boss.width / 2, bossBarY - 8);
     ctx.shadowBlur = 0;
 
     if (boss.debuffs && boss.debuffs.length > 0) {
@@ -1374,6 +1739,8 @@ const GameCanvasComponent = ({ gameState, gameStateRef }: GameCanvasProps) => {
         ctx.globalAlpha = 1;
       });
     }
+
+    } // end of !state.showWaveComplete (보스 + 투사체 렌더링 블록)
 
     state.damageTexts.slice(0, MAX_DAMAGE_TEXTS_RENDER).forEach((damageText) => {
       ctx.globalAlpha = damageText.opacity;

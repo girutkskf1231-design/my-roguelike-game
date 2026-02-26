@@ -230,28 +230,47 @@ export const createPlayer = (classType: ClassType, savedData?: SavedGameData | n
 
 // 게임 상수
 export const MAX_WAVE = 100;
+export const MAX_WAVE_HELL = 500;
+
+export const getMaxWave = (difficulty: 'normal' | 'hard' | 'hell'): number => {
+  return difficulty === 'hell' ? MAX_WAVE_HELL : MAX_WAVE;
+};
 
 // 초기 보스 상태
-export const createBoss = (wave: number): Boss => {
-  // 웨이브 5마다 페이즈 증가
+export const createBoss = (wave: number, difficulty: 'normal' | 'hard' | 'hell' = 'normal'): Boss => {
   const phase = Math.floor((wave - 1) / 5) + 1;
-  
-  // 체력 증가 공식 조정 (100웨이브까지 밸런스)
-  // 기본 증가율을 낮추고, 페이즈별 증가를 적절히 조정
-  const baseHealthMultiplier = 1 + (wave - 1) * 0.3; // 0.5 -> 0.3으로 감소
-  const phaseBonus = Math.pow(1.3, phase - 1); // 1.5 -> 1.3으로 감소
+  const isHellFinalBoss = difficulty === 'hell' && wave >= MAX_WAVE_HELL;
+
+  let baseHealthMultiplier: number;
+  let phaseBonus: number;
+
+  if (difficulty === 'hell') {
+    // 헬 모드: 500웨이브까지 완만하게 증가, 최종 보스는 특별 스케일
+    baseHealthMultiplier = 1 + (wave - 1) * 0.2;
+    phaseBonus = Math.pow(1.2, Math.min(phase - 1, 25));
+    if (isHellFinalBoss) {
+      baseHealthMultiplier *= 5; // 최종 보스 5배
+    }
+  } else if (difficulty === 'hard') {
+    baseHealthMultiplier = (1 + (wave - 1) * 0.3) * 1.5;
+    phaseBonus = Math.pow(1.3, Math.min(phase - 1, 19));
+  } else {
+    baseHealthMultiplier = 1 + (wave - 1) * 0.3;
+    phaseBonus = Math.pow(1.3, Math.min(phase - 1, 19));
+  }
+
   const healthMultiplier = baseHealthMultiplier * phaseBonus;
   const baseHealth = 100;
-  
+
   return {
     position: { x: CANVAS_WIDTH - 150, y: CANVAS_HEIGHT - 200 },
     velocity: { x: 0, y: 0 },
-    width: 60,
-    height: 80,
+    width: isHellFinalBoss ? 80 : 60,
+    height: isHellFinalBoss ? 100 : 80,
     health: Math.floor(baseHealth * healthMultiplier),
     maxHealth: Math.floor(baseHealth * healthMultiplier),
     currentPattern: 0,
-    patternCooldown: 80, // 고정 쿨다운 (모든 웨이브 동일)
+    patternCooldown: difficulty === 'hell' ? 60 : 80,
     isAttacking: false,
     debuffs: [],
   };
@@ -378,7 +397,7 @@ export const updateBoss = (
   player: Player,
   projectiles: Projectile[],
   wave: number,
-  difficulty: 'normal' | 'hard' = 'normal'
+  difficulty: 'normal' | 'hard' | 'hell' = 'normal'
 ): { boss: Boss; projectiles: Projectile[] } => {
   const newBoss = { ...boss };
   const newProjectiles = [...projectiles];
@@ -934,6 +953,257 @@ export const updateBoss = (
       newBoss.patternCooldown = 180;
       newBoss.currentPattern = 0;
     }
+    // ======= 헬 모드 최종 보스 전용 패턴 (20~119) =======
+    else if (difficulty === 'hell' && wave >= MAX_WAVE_HELL) {
+      const hs = Math.min(22, 8 + wave * 0.02);  // 헬 속도
+      const hd = Math.min(300, 25 + wave * 0.55); // 헬 데미지
+      const hc = Math.min(50, 20 + Math.floor(wave * 0.06)); // 헬 발사체 수
+      const p = newBoss.currentPattern; // 현재 패턴 0~99
+      const bx = newBoss.position.x + newBoss.width / 2;
+      const by = newBoss.position.y + newBoss.height / 2;
+      const aimAngle = Math.atan2(player.position.y - by, player.position.x - bx);
+
+      const push = (angle: number, speed: number, dmg: number, sz: number) => {
+        newProjectiles.push({
+          position: { x: bx, y: by },
+          velocity: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+          width: sz, height: sz, damage: dmg, fromPlayer: false,
+        });
+      };
+
+      const group = Math.floor(p / 5); // 0~19 그룹
+      const v = p % 5;                 // 그룹 내 변형 0~4
+
+      if (group === 0) {
+        // 0~4: 조준 집중 발사 (퍼짐 정도 변화)
+        const spread = 0.1 + v * 0.12;
+        for (let i = 0; i < 10 + v * 3; i++) {
+          push(aimAngle + (Math.random() - 0.5) * spread * 2, hs * (0.8 + Math.random() * 0.5), hd, 14 + v * 2);
+        }
+        newBoss.patternCooldown = 55 + v * 5;
+      } else if (group === 1) {
+        // 5~9: 부채꼴 확산 (방향 수 변화)
+        const dirs = 5 + v * 3;
+        for (let i = 0; i < dirs; i++) {
+          push(aimAngle + (i - Math.floor(dirs / 2)) * (Math.PI / (8 + v)), hs + v * 0.5, hd + v * 10, 15);
+        }
+        newBoss.patternCooldown = 60 + v * 4;
+      } else if (group === 2) {
+        // 10~14: 원형 전방위 발사 (링 수 변화)
+        const rings = 1 + v;
+        for (let r = 0; r < rings; r++) {
+          const cnt = hc + r * 4;
+          for (let i = 0; i < cnt; i++) {
+            const ang = (Math.PI * 2 / cnt) * i + r * 0.15;
+            push(ang, hs * (0.7 + r * 0.3), hd + r * 8, 12 + r * 2);
+          }
+        }
+        newBoss.patternCooldown = 80 + v * 10;
+      } else if (group === 3) {
+        // 15~19: 나선 발사 (팔 수 변화)
+        const arms = 2 + v;
+        for (let arm = 0; arm < arms; arm++) {
+          const base = (Math.PI * 2 / arms) * arm;
+          for (let i = 0; i < 6; i++) {
+            push(base + i * 0.35, hs * (0.8 + i * 0.15), hd + i * 5, 13);
+          }
+        }
+        newBoss.patternCooldown = 65 + v * 5;
+      } else if (group === 4) {
+        // 20~24: 십자 + 대각선 복합 (파 수 변화)
+        const waves2 = 1 + v;
+        for (let w2 = 0; w2 < waves2; w2++) {
+          for (let i = 0; i < 8; i++) {
+            const ang = (Math.PI / 4) * i;
+            for (let j = 0; j < 4; j++) {
+              push(ang, hs * (0.8 + j * 0.3 + w2 * 0.2), hd + j * 6 + w2 * 5, 14);
+            }
+          }
+        }
+        newBoss.patternCooldown = 90 + v * 8;
+      } else if (group === 5) {
+        // 25~29: 원형 + 조준 혼합
+        for (let i = 0; i < hc; i++) {
+          push((Math.PI * 2 / hc) * i, hs, hd, 12);
+        }
+        for (let i = 0; i < 5 + v * 2; i++) {
+          push(aimAngle + (i - (5 + v * 2) / 2) * 0.2, hs * 1.5, hd + 20, 16);
+        }
+        newBoss.patternCooldown = 100 + v * 5;
+      } else if (group === 6) {
+        // 30~34: 고속 추적탄 (수 변화)
+        const cnt = 6 + v * 4;
+        for (let i = 0; i < cnt; i++) {
+          push(aimAngle + (Math.random() - 0.5) * (0.3 + v * 0.1), hs * (1.5 + v * 0.2), hd + 15 + v * 8, 18 + v);
+        }
+        newBoss.patternCooldown = 55 + v * 5;
+      } else if (group === 7) {
+        // 35~39: 무작위 폭격 (크기/속도 변화)
+        const cnt2 = 20 + v * 8;
+        for (let i = 0; i < cnt2; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = hs * (0.4 + Math.random() * (1.2 + v * 0.2));
+          const sz = 12 + Math.floor(Math.random() * (6 + v * 2));
+          push(ang, spd, hd + sz, sz);
+        }
+        newBoss.patternCooldown = 70 + v * 5;
+      } else if (group === 8) {
+        // 40~44: 스윕 (좌우 쓸기)
+        const sweepCount = 12 + v * 3;
+        for (let i = 0; i < sweepCount; i++) {
+          const ang = -Math.PI / 2 + (Math.PI / (sweepCount - 1)) * i + v * 0.1;
+          push(ang, hs * (1 + v * 0.1), hd + v * 5, 14);
+        }
+        newBoss.patternCooldown = 60 + v * 5;
+      } else if (group === 9) {
+        // 45~49: 밀집 집중탄
+        for (let i = 0; i < 8 + v * 2; i++) {
+          for (let j = 0; j < 4 + v; j++) {
+            push(aimAngle + (i - (8 + v * 2) / 2) * 0.15, hs * (0.8 + j * 0.35), hd + j * 8 + i * 2, 13 + v);
+          }
+        }
+        newBoss.patternCooldown = 110 + v * 8;
+      } else if (group === 10) {
+        // 50~54: 회전 레이저 패턴
+        const rotOff = Date.now() * (0.003 + v * 0.001);
+        const rayCount = 6 + v * 2;
+        for (let i = 0; i < rayCount; i++) {
+          const ang = (Math.PI * 2 / rayCount) * i + rotOff;
+          for (let j = 0; j < 5; j++) {
+            push(ang, hs * (1.2 + j * 0.3), hd + j * 6, 14 + j);
+          }
+        }
+        newBoss.patternCooldown = 75 + v * 5;
+      } else if (group === 11) {
+        // 55~59: 포위 덫 (플레이어 주변에서 안쪽으로)
+        const trapN = 12 + v * 4;
+        const dist = 120 + v * 20;
+        for (let i = 0; i < trapN; i++) {
+          const ang = (Math.PI * 2 / trapN) * i;
+          const tx = player.position.x + Math.cos(ang) * dist;
+          const ty = player.position.y + Math.sin(ang) * dist;
+          const toCenter = Math.atan2(player.position.y - ty, player.position.x - tx);
+          newProjectiles.push({
+            position: { x: tx, y: ty },
+            velocity: { x: Math.cos(toCenter) * hs * 1.2, y: Math.sin(toCenter) * hs * 1.2 },
+            width: 14 + v, height: 14 + v, damage: hd + 20 + v * 5, fromPlayer: false,
+          });
+        }
+        newBoss.patternCooldown = 85 + v * 8;
+      } else if (group === 12) {
+        // 60~64: 다방향 동시 폭발
+        const dirs2 = 3 + v;
+        for (let d = 0; d < dirs2; d++) {
+          const baseAng = (Math.PI * 2 / dirs2) * d + aimAngle;
+          for (let i = 0; i < 8; i++) {
+            push(baseAng + (i - 3.5) * 0.2, hs * (0.9 + i * 0.15), hd + i * 4, 13 + d);
+          }
+        }
+        newBoss.patternCooldown = 80 + v * 6;
+      } else if (group === 13) {
+        // 65~69: 펄스 패턴 (빠른 연속 원형)
+        const pulses = 2 + v;
+        for (let pu = 0; pu < pulses; pu++) {
+          const cnt3 = 16 + pu * 4;
+          for (let i = 0; i < cnt3; i++) {
+            const ang = (Math.PI * 2 / cnt3) * i + pu * 0.2;
+            push(ang, hs * (0.6 + pu * 0.4), hd + pu * 12, 11 + pu * 2);
+          }
+        }
+        newBoss.patternCooldown = 90 + v * 5;
+      } else if (group === 14) {
+        // 70~74: 화면 가장자리에서 수렴
+        const edges = 16 + v * 4;
+        for (let i = 0; i < edges; i++) {
+          const frac = i / edges;
+          let ex: number, ey: number;
+          if (frac < 0.25) { ex = CANVAS_WIDTH * frac * 4; ey = 0; }
+          else if (frac < 0.5) { ex = CANVAS_WIDTH; ey = CANVAS_HEIGHT * (frac - 0.25) * 4; }
+          else if (frac < 0.75) { ex = CANVAS_WIDTH * (1 - (frac - 0.5) * 4); ey = CANVAS_HEIGHT; }
+          else { ex = 0; ey = CANVAS_HEIGHT * (1 - (frac - 0.75) * 4); }
+          const toPx = Math.atan2(player.position.y - ey, player.position.x - ex);
+          newProjectiles.push({
+            position: { x: ex, y: ey },
+            velocity: { x: Math.cos(toPx) * hs, y: Math.sin(toPx) * hs },
+            width: 13 + v, height: 13 + v, damage: hd + 15, fromPlayer: false,
+          });
+        }
+        newBoss.patternCooldown = 95 + v * 5;
+      } else if (group === 15) {
+        // 75~79: 다층 동심원 발사
+        const layers = 2 + v;
+        for (let l = 0; l < layers; l++) {
+          const cnt4 = 10 + l * 5 + v * 2;
+          for (let i = 0; i < cnt4; i++) {
+            const ang = (Math.PI * 2 / cnt4) * i + l * (Math.PI / cnt4);
+            push(ang, hs * (0.5 + l * 0.4), hd + l * 10 + v * 5, 12 + l * 2);
+          }
+        }
+        newBoss.patternCooldown = 105 + v * 8;
+      } else if (group === 16) {
+        // 80~84: 폭발 확산 (여러 중심점)
+        const centers = 2 + v;
+        for (let c = 0; c < centers; c++) {
+          const cx = bx + Math.cos((Math.PI * 2 / centers) * c) * 50;
+          const cy = by + Math.sin((Math.PI * 2 / centers) * c) * 50;
+          const cnt5 = 10 + v * 3;
+          for (let i = 0; i < cnt5; i++) {
+            const ang = (Math.PI * 2 / cnt5) * i;
+            newProjectiles.push({
+              position: { x: cx, y: cy },
+              velocity: { x: Math.cos(ang) * hs * 1.2, y: Math.sin(ang) * hs * 1.2 },
+              width: 14, height: 14, damage: hd + c * 8 + v * 5, fromPlayer: false,
+            });
+          }
+        }
+        newBoss.patternCooldown = 100 + v * 5;
+      } else if (group === 17) {
+        // 85~89: 쇄도 폭격 (연속 원형 조합)
+        for (let burst = 0; burst < 3 + v; burst++) {
+          const cnt6 = 8 + burst * 4;
+          for (let i = 0; i < cnt6; i++) {
+            const ang = (Math.PI * 2 / cnt6) * i + burst * 0.3;
+            push(ang, hs * (0.8 + burst * 0.25), hd + burst * 10 + v * 5, 12 + burst * 2);
+          }
+        }
+        newBoss.patternCooldown = 120 + v * 5;
+      } else if (group === 18) {
+        // 90~94: 폭풍 (조준 + 원형 + 랜덤 동시)
+        // 조준
+        for (let i = 0; i < 6 + v * 2; i++) {
+          push(aimAngle + (Math.random() - 0.5) * 0.5, hs * 2, hd + 30, 18);
+        }
+        // 원형
+        for (let i = 0; i < 20 + v * 4; i++) {
+          push((Math.PI * 2 / (20 + v * 4)) * i, hs, hd, 11);
+        }
+        // 랜덤
+        for (let i = 0; i < 10 + v * 3; i++) {
+          push(Math.random() * Math.PI * 2, hs * (0.5 + Math.random() * 1.5), hd + 15, 13);
+        }
+        newBoss.patternCooldown = 140 + v * 10;
+      } else {
+        // 95~99: 종말의 폭풍 (최대 밀도)
+        // 1. 초고속 조준 집중탄
+        for (let i = 0; i < 20 + v * 4; i++) {
+          push(aimAngle + (Math.random() - 0.5) * (0.2 + v * 0.1), hs * 2.5, hd + 40 + v * 10, 20);
+        }
+        // 2. 삼중 원형
+        for (let r = 0; r < 3; r++) {
+          const rCnt = 18 + r * 6 + v * 3;
+          for (let i = 0; i < rCnt; i++) {
+            push((Math.PI * 2 / rCnt) * i + r * 0.15, hs * (0.8 + r * 0.4), hd + r * 15 + v * 8, 12 + r * 2);
+          }
+        }
+        // 3. 전방위 대형탄
+        for (let i = 0; i < 36; i++) {
+          push((Math.PI * 2 / 36) * i, hs * 1.5, hd + 25 + v * 6, 16);
+        }
+        newBoss.patternCooldown = 160 + v * 12;
+      }
+
+      newBoss.currentPattern = (p + 1) % 100;
+    }
     else {
       // 패턴이 범위를 벗어난 경우 0으로 리셋
       newBoss.currentPattern = 0;
@@ -1305,10 +1575,10 @@ export const loadGameData = (): SavedGameData | null => {
 };
 
 // 초기 게임 상태
-export const createInitialGameState = (classType: ClassType, savedData?: SavedGameData | null, difficulty: 'normal' | 'hard' = 'normal'): GameState => {
+export const createInitialGameState = (classType: ClassType, savedData?: SavedGameData | null, difficulty: 'normal' | 'hard' | 'hell' = 'normal'): GameState => {
   return {
     player: createPlayer(classType, savedData),
-    boss: createBoss(savedData?.wave ?? 1),
+    boss: createBoss(savedData?.wave ?? 1, difficulty),
     projectiles: [],
     platforms: createPlatforms(),
     gameStatus: savedData ? 'playing' : 'menu',

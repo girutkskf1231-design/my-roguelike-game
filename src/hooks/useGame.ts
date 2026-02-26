@@ -22,7 +22,7 @@ import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
   createPlatforms,
-  MAX_WAVE,
+  getMaxWave,
   upgradeWeapon,
   evolveWeapon,
 } from '../utils/gameLogic';
@@ -193,7 +193,7 @@ export const useGame = () => {
         newState = {
           ...prev,
           player: newPlayer,
-          boss: createBoss(prev.wave),
+          boss: createBoss(prev.wave, prev.difficulty),
           platforms: createPlatforms(),
           projectiles: [],
           gameStatus: 'choosing' as const,
@@ -206,7 +206,7 @@ export const useGame = () => {
         newState = {
           ...prev,
           player: newPlayer,
-          boss: createBoss(prev.wave),
+          boss: createBoss(prev.wave, prev.difficulty),
           platforms: createPlatforms(),
           projectiles: [],
           gameStatus: 'playing' as const,
@@ -1154,13 +1154,10 @@ export const useGame = () => {
             health: Math.min(newPlayer.maxHealth, newPlayer.health + healAmount),
           };
         }
-        let { boss: newBoss, projectiles: newProjectiles } = updateBoss(
-          prev.boss,
-          newPlayer,
-          prev.projectiles,
-          prev.wave,
-          prev.difficulty
-        );
+        // 웨이브 클리어 연출 중에는 보스 비활성화 (공격/이동 없음)
+        let { boss: newBoss, projectiles: newProjectiles } = prev.showWaveComplete
+          ? { boss: prev.boss, projectiles: prev.projectiles }
+          : updateBoss(prev.boss, newPlayer, prev.projectiles, prev.wave, prev.difficulty);
         const newDamageTexts: DamageText[] = [];
         newBoss.debuffs = newBoss.debuffs.filter(debuff => {
           debuff.duration--;
@@ -1452,8 +1449,8 @@ export const useGame = () => {
           
           newScore += 1000 * newWave;
           
-          // 웨이브 100 클리어 시 게임 완전 클리어
-          if (prev.wave >= MAX_WAVE) {
+          // 최대 웨이브 클리어 시 게임 완전 클리어
+          if (prev.wave >= getMaxWave(prev.difficulty)) {
             newGameStatus = 'victory';
             lastPlayDurationRef.current = Math.floor((Date.now() - gameStartTime.current) / 1000); // 타이머 정지
             const newHighScore = Math.max(highScore, newScore);
@@ -1557,7 +1554,7 @@ export const useGame = () => {
                 const newState = {
                   ...prev,
                   player: resetPlayer,
-                  boss: createBoss(prev.wave),
+                  boss: createBoss(prev.wave, prev.difficulty),
                   platforms: createPlatforms(), // 새로운 맵 생성
                   projectiles: [],
                   gameStatus: 'playing' as const,
@@ -1587,12 +1584,14 @@ export const useGame = () => {
               });
             }, 2500);
             
-            // 레벨업/보너스 없음: 2.5초 후 다음 웨이브로 진행. 클리어는 웨이브 100에서만.
+            // 레벨업/보너스 없음: 2.5초 후 다음 웨이브로 진행.
+            // 죽은 보스(health=0)를 그대로 두면 다음 프레임에 다시 처리되므로
+            // 새 웨이브의 보스를 미리 생성해 둠 (setTimeout이 다시 교체함)
             return {
               ...prev,
               player: newPlayer,
-              boss: newBoss,
-              projectiles: updatedProjectiles,
+              boss: createBoss(newWave, prev.difficulty),
+              projectiles: [],
               gameStatus: 'playing',
               score: newScore,
               wave: newWave,

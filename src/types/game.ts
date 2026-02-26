@@ -183,7 +183,7 @@ export interface DamageText {
   element?: ElementType; // 속성 타입
 }
 
-export type Difficulty = 'normal' | 'hard';
+export type Difficulty = 'normal' | 'hard' | 'hell';
 
 export type ClassType = 'warrior' | 'archer' | 'mage' | 'assassin';
 

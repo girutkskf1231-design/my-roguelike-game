@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import type { Difficulty, ClassType } from './types/game';
+import { getMaxWave } from './utils/gameLogic';
 import { useGame } from './hooks/useGame';
 import { GameCanvas } from './components/GameCanvas';
 import { RewardChoiceScreen } from './components/RewardChoiceScreen';
@@ -264,38 +265,52 @@ function App() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-3 gap-4">
               <button
                 onClick={() => handleDifficultySelect('normal')}
-                className="group relative bg-gradient-to-br from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 rounded-xl p-6 border-2 border-blue-400 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/50"
+                className="group relative bg-gradient-to-br from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 rounded-xl p-5 border-2 border-blue-400 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/50"
               >
-                <div className="text-4xl mb-3">🛡️</div>
-                <div className="text-2xl font-bold text-white mb-2">노말</div>
-                <div className="text-blue-100 text-sm mb-4">표준 난이도</div>
-                <div className="bg-blue-950/50 rounded p-3 text-xs text-blue-200 space-y-1">
+                <div className="text-4xl mb-2">🛡️</div>
+                <div className="text-xl font-bold text-white mb-1">노말</div>
+                <div className="text-blue-100 text-xs mb-3">표준 난이도</div>
+                <div className="bg-blue-950/50 rounded p-2 text-xs text-blue-200 space-y-1">
                   <div>• 웨이브 1-100</div>
-                  <div>• 보스 패턴: 최대 10개</div>
+                  <div>• 패턴 최대 10개</div>
                   <div>• 균형잡힌 난이도</div>
                 </div>
               </button>
 
               <button
                 onClick={() => handleDifficultySelect('hard')}
-                className="group relative bg-gradient-to-br from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 rounded-xl p-6 border-2 border-red-400 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-red-500/50"
+                className="group relative bg-gradient-to-br from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 rounded-xl p-5 border-2 border-red-400 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-red-500/50"
               >
-                <div className="text-4xl mb-3">🔥</div>
-                <div className="text-2xl font-bold text-white mb-2">하드</div>
-                <div className="text-red-100 text-sm mb-4">극한의 도전</div>
-                <div className="bg-red-950/50 rounded p-3 text-xs text-red-200 space-y-1">
+                <div className="text-4xl mb-2">🔥</div>
+                <div className="text-xl font-bold text-white mb-1">하드</div>
+                <div className="text-red-100 text-xs mb-3">극한의 도전</div>
+                <div className="bg-red-950/50 rounded p-2 text-xs text-red-200 space-y-1">
                   <div>• 웨이브 1-100</div>
-                  <div>• 보스 패턴: 최대 20개</div>
-                  <div>• 웨이브 100 극악 난이도</div>
+                  <div>• 패턴 최대 20개</div>
+                  <div>• 100웨이브 극악 패턴</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => handleDifficultySelect('hell')}
+                className="group relative bg-gradient-to-br from-purple-900 to-red-900 hover:from-purple-800 hover:to-red-800 rounded-xl p-5 border-2 border-purple-500 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/50"
+              >
+                <div className="text-4xl mb-2 animate-pulse">💀</div>
+                <div className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-purple-400 mb-1">헬</div>
+                <div className="text-purple-200 text-xs mb-3">죽음의 심연</div>
+                <div className="bg-purple-950/50 rounded p-2 text-xs text-purple-200 space-y-1">
+                  <div>• 웨이브 1-500</div>
+                  <div>• 패턴 100개 (최종)</div>
+                  <div>• 500웨이브 지옥의 보스</div>
                 </div>
               </button>
             </div>
 
-            <div className="mt-6 text-center text-gray-400 text-xs">
-              💡 하드 모드는 웨이브 100에서 압도적인 탄막 패턴이 추가됩니다
+            <div className="mt-5 text-center text-gray-400 text-xs">
+              💀 헬 모드는 500웨이브! 최종 보스는 100개의 패턴을 사용합니다
             </div>
 
             <div className="mt-4 flex flex-col gap-3">
@@ -509,34 +524,46 @@ function App() {
 
                   {/* 중앙: 웨이브/점수 */}
                   <div className="flex items-center gap-4">
+                    {(() => {
+                      const maxW = getMaxWave(gameState.difficulty);
+                      const isFinal = gameState.wave >= maxW;
+                      return (
                     <div
                       className={`bg-slate-900/95 rounded-lg px-4 py-2.5 border ${
-                        gameState.wave >= 100
+                        isFinal
                           ? 'border-yellow-500/50 animate-pulse'
-                          : 'border-purple-500/50'
+                          : gameState.difficulty === 'hell'
+                            ? 'border-purple-500/50'
+                            : 'border-purple-500/50'
                       }`}
                     >
                       <div className="text-center">
                         <div
                           className={`text-[10px] font-semibold mb-1 ${
-                            gameState.wave >= 100
+                            isFinal
                               ? 'text-yellow-400'
-                              : 'text-purple-400'
+                              : gameState.difficulty === 'hell'
+                                ? 'text-purple-400'
+                                : 'text-purple-400'
                           }`}
                         >
                           WAVE
                         </div>
                         <div
                           className={`font-bold text-base ${
-                            gameState.wave >= 100
+                            isFinal
                               ? 'text-yellow-300'
-                              : 'text-white'
+                              : gameState.difficulty === 'hell'
+                                ? 'text-purple-300'
+                                : 'text-white'
                           }`}
                         >
-                          {gameState.wave} / 100
+                          {gameState.wave} / {maxW}
                         </div>
                       </div>
                     </div>
+                      );
+                    })()}
 
                     <div className="bg-slate-900/95 rounded-lg px-4 py-2.5 border border-cyan-500/50">
                       <div className="text-center">
@@ -1047,29 +1074,51 @@ function App() {
       {/* 승리 화면 */}
       {gameState.gameStatus === 'victory' && (
         <div className="absolute inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center pointer-events-auto">
-          <div className="bg-gradient-to-br from-slate-900 via-purple-900 to-yellow-900 rounded-2xl p-8 border-4 border-yellow-500 shadow-2xl max-w-md w-full">
-            <div className="text-8xl mb-4 text-center animate-bounce">🎉</div>
-            <div className="text-5xl text-yellow-400 font-bold mb-2 text-center drop-shadow-lg animate-pulse">
-              게임 클리어!
+          <div className={`rounded-2xl p-8 border-4 shadow-2xl max-w-md w-full ${
+            gameState.difficulty === 'hell'
+              ? 'bg-gradient-to-br from-slate-900 via-purple-950 to-red-950 border-purple-500'
+              : 'bg-gradient-to-br from-slate-900 via-purple-900 to-yellow-900 border-yellow-500'
+          }`}>
+            <div className="text-8xl mb-4 text-center animate-bounce">
+              {gameState.difficulty === 'hell' ? '💀' : '🎉'}
             </div>
-            <div className="bg-yellow-950/50 border-2 border-yellow-600 rounded-lg p-4 mb-6">
-              <div className="text-yellow-300 font-bold text-center mb-2">
-                🏆 축하합니다! 🏆
+            <div className={`text-5xl font-bold mb-2 text-center drop-shadow-lg animate-pulse ${
+              gameState.difficulty === 'hell'
+                ? 'text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-purple-400'
+                : 'text-yellow-400'
+            }`}>
+              {gameState.difficulty === 'hell' ? '지옥 정복!' : '게임 클리어!'}
+            </div>
+            <div className={`border-2 rounded-lg p-4 mb-6 ${
+              gameState.difficulty === 'hell'
+                ? 'bg-purple-950/50 border-purple-600'
+                : 'bg-yellow-950/50 border-yellow-600'
+            }`}>
+              <div className={`font-bold text-center mb-2 ${
+                gameState.difficulty === 'hell' ? 'text-purple-300' : 'text-yellow-300'
+              }`}>
+                {gameState.difficulty === 'hell' ? '☠️ 당신은 지옥을 정복했습니다! ☠️' : '🏆 축하합니다! 🏆'}
               </div>
               <div className="text-gray-200 text-sm text-center mb-2">
-                웨이브 100을 모두 클리어했습니다!
+                {gameState.difficulty === 'hell'
+                  ? '웨이브 500을 모두 클리어했습니다!'
+                  : '웨이브 100을 모두 클리어했습니다!'}
               </div>
               <div className="text-center">
                 <span
                   className={`inline-block px-3 py-1 rounded text-xs font-bold ${
-                    gameState.difficulty === 'hard'
-                      ? 'bg-red-600 text-white'
-                      : 'bg-blue-600 text-white'
+                    gameState.difficulty === 'hell'
+                      ? 'bg-gradient-to-r from-purple-700 to-red-700 text-white'
+                      : gameState.difficulty === 'hard'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-blue-600 text-white'
                   }`}
                 >
-                  {gameState.difficulty === 'hard'
-                    ? '🔥 하드 모드'
-                    : '🛡️ 노말 모드'}
+                  {gameState.difficulty === 'hell'
+                    ? '💀 헬 모드'
+                    : gameState.difficulty === 'hard'
+                      ? '🔥 하드 모드'
+                      : '🛡️ 노말 모드'}
                 </span>
               </div>
             </div>
@@ -1147,14 +1196,18 @@ function App() {
               <div className="text-center mb-2">
                 <span
                   className={`inline-block px-3 py-1 rounded text-xs font-bold mb-2 ${
-                    gameState.difficulty === 'hard'
-                      ? 'bg-red-700 text-white'
-                      : 'bg-blue-700 text-white'
+                    gameState.difficulty === 'hell'
+                      ? 'bg-gradient-to-r from-purple-700 to-red-700 text-white'
+                      : gameState.difficulty === 'hard'
+                        ? 'bg-red-700 text-white'
+                        : 'bg-blue-700 text-white'
                   }`}
                 >
-                  {gameState.difficulty === 'hard'
-                    ? '🔥 하드 모드'
-                    : '🛡️ 노말 모드'}
+                  {gameState.difficulty === 'hell'
+                    ? '💀 헬 모드'
+                    : gameState.difficulty === 'hard'
+                      ? '🔥 하드 모드'
+                      : '🛡️ 노말 모드'}
                 </span>
               </div>
               <div className="text-red-300 font-bold text-center mb-2">

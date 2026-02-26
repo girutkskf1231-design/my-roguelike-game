@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { supabase, updateProfileNickname, uploadAvatar, AVATAR_MAX_BYTES } from '@/lib/supabase';
+import { supabase, updateProfileNickname, uploadAvatar, AVATAR_MAX_BYTES, type UploadAvatarResult } from '@/lib/supabase';
 import { hasNicknameForbiddenChars, isInappropriateNickname } from '@/lib/nicknameBlocklist';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/contexts/ToastContext';
@@ -69,7 +69,7 @@ function isAbortError(e: unknown): boolean {
 }
 
 export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
-  const { user, profile, loading, refreshProfile, signOut, ensureProfileForCurrentUser } = useAuth();
+  const { user, profile, loading, patchProfile, signOut, ensureProfileForCurrentUser } = useAuth();
   const showToast = useToast();
   const [nickname, setNickname] = useState(profile?.nickname ?? '');
   const ensuredOnce = useRef(false);
@@ -137,11 +137,11 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
       }
     }
 
-    const result = await uploadAvatar(user.id, uploadFile);
+    const result: UploadAvatarResult = await uploadAvatar(user.id, uploadFile);
     setAvatarUploading(false);
-    if (result.ok) {
-      await refreshProfile();
-    } else {
+    if (result.ok && result.url) {
+      patchProfile({ avatar_url: result.url });
+    } else if (!result.ok) {
       setAvatarError(result.error ?? '업로드에 실패했습니다.');
     }
   };
@@ -181,12 +181,13 @@ export function MyInfoScreen({ onClose, onAfterLogout }: MyInfoScreenProps) {
       const result = await updateProfileNickname(user.id, n);
       if (!isMountedRef.current) return;
       if (result.ok) {
-        await refreshProfile();
-        if (!isMountedRef.current) return;
-        showToast('닉네임이 저장되었습니다.', 'success');
-        setIsEditingNickname(false);
+        patchProfile({ nickname: n });
+        if (isMountedRef.current) {
+          showToast('닉네임이 저장되었습니다.', 'success');
+          setIsEditingNickname(false);
+        }
       } else {
-        setNicknameError(result.error ?? '저장에 실패했습니다.');
+        if (isMountedRef.current) setNicknameError(result.error ?? '저장에 실패했습니다.');
       }
     } catch (e) {
       if (!isMountedRef.current) return;
