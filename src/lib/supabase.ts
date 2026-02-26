@@ -55,7 +55,7 @@ export async function fetchLeaderboard(limit = 20): Promise<GameScoreRow[]> {
     const { data, error } = await supabase
       .from(TABLE)
       .select('id, player_name, score, wave, difficulty, class_type, created_at, play_duration_seconds')
-      .order('play_duration_seconds', { ascending: true, nullsLast: true })
+      .order('play_duration_seconds', { ascending: true })
       .order('score', { ascending: false })
       .order('wave', { ascending: false })
       .limit(limit);
